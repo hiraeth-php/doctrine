@@ -1,0 +1,40 @@
+[manager]
+
+	;
+	;
+	;
+
+	connection = default
+
+	;
+	;
+	;
+
+	cache = default
+
+	;
+	;
+	;
+
+	paths = [
+		"local/entities"
+	]
+
+
+	;
+	;
+	;
+
+	[&.proxy]
+
+		;
+		;
+		;
+
+		namespace = Proxies\Default
+
+		;
+		;
+		;
+
+		directory = storage/proxies/default
