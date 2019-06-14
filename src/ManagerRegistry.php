@@ -9,6 +9,7 @@ use Doctrine\Common\Cache;
 
 use ReflectionClass;
 use RuntimeException;
+use InvalidArgumentException;
 use Hiraeth\Dbal\ConnectionRegistry;
 use Hiraeth\Caching\PoolManagerInterface;
 use Doctrine\ORM\Proxy\ProxyFactory;
@@ -104,7 +105,7 @@ class ManagerRegistry extends ConnectionRegistry implements Persistence\ManagerR
         }
 
         if (!isset($this->managerCollections[$name])) {
-            throw new InvalidArgumentException(sprintf('Doctrine %s Manager named "%s" does not exist.', $this->name, $name));
+            throw new InvalidArgumentException(sprintf('Doctrine manager named "%s" does not exist.', $name));
         }
 
 		if (!isset($this->managers[$name])) {
