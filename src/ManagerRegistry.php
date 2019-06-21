@@ -18,8 +18,20 @@ use Cache\Bridge\Doctrine\DoctrineCacheBridge;
 /**
  *
  */
-class ManagerRegistry extends ConnectionRegistry implements Persistence\ManagerRegistry
+class ManagerRegistry implements Persistence\ManagerRegistry
 {
+	/**
+	 *
+	 */
+	protected $app = NULL;
+
+
+	/**
+	 *
+	 */
+	protected $connectionRegistry = NULL;
+
+
 	/**
 	 *
 	 */
@@ -47,11 +59,11 @@ class ManagerRegistry extends ConnectionRegistry implements Persistence\ManagerR
 	/**
 	 *
 	 */
-	public function __construct(Hiraeth\Application $app)
+	public function __construct(Hiraeth\Application $app, ConnectionRegistry $connection_registry)
 	{
-		parent::__construct($app);
-
-		$this->defaultManager = 'default';
+		$this->app                = $app;
+		$this->defaultManager     = 'default';
+		$this->connectionRegistry = $connection_registry;
 
 		if ($app->has(PoolManagerInterface::class)) {
 			$this->pools = $app->get(PoolManagerInterface::class);
@@ -68,6 +80,8 @@ class ManagerRegistry extends ConnectionRegistry implements Persistence\ManagerR
 				$this->managerCollections[$name] = $collection;
 			}
 		}
+
+		$app->share($this);
 	}
 
 
@@ -82,31 +96,67 @@ class ManagerRegistry extends ConnectionRegistry implements Persistence\ManagerR
 			if ($alias) {
 				return $alias;
 			}
-        }
+		}
 	}
 
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getDefaultManagerName()
-    {
-        return $this->defaultManager;
-    }
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getConnection($name = null): object
+	{
+		return $this->connectionRegistry->getConnection($name);
+	}
 
 
 	/**
-     * {@inheritdoc}
-     */
-    public function getManager($name = null)
-    {
-        if ($name === null) {
-            $name = $this->defaultManager;
-        }
+	 * {@inheritdoc}
+	 */
+	public function getConnectionNames(): array
+	{
+		return $this->connectionRegistry->getConnectionNames();
+	}
 
-        if (!isset($this->managerCollections[$name])) {
-            throw new InvalidArgumentException(sprintf('Doctrine manager named "%s" does not exist.', $name));
-        }
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getConnections(): array
+	{
+		return $this->connectionRegistry->getConnections();
+	}
+
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getDefaultConnectionName(): string
+	{
+		return $this->connectionRegistry->getDefaultConnectionName();
+	}
+
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getDefaultManagerName()
+	{
+		return $this->defaultManager;
+	}
+
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getManager($name = null)
+	{
+		if ($name === null) {
+			$name = $this->defaultManager;
+		}
+
+		if (!isset($this->managerCollections[$name])) {
+			throw new InvalidArgumentException(sprintf('Doctrine manager named "%s" does not exist.', $name));
+		}
 
 		if (!isset($this->managers[$name])) {
 			$paths      = array();
@@ -150,77 +200,77 @@ class ManagerRegistry extends ConnectionRegistry implements Persistence\ManagerR
 		}
 
 		return $this->managers[$name];
-    }
+	}
 
 
 	/**
-     * {@inheritdoc}
-     */
-    public function getManagerForClass($class)
-    {
-        if (strpos($class, ':') !== false) {
+	 * {@inheritdoc}
+	 */
+	public function getManagerForClass($class)
+	{
+		if (strpos($class, ':') !== false) {
 			$parts = explode(':', $class, 2);
 			$alias = $parts[0];
-            $class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
-        }
+			$class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
+		}
 
-        $reflection = new ReflectionClass($class);
+		$reflection = new ReflectionClass($class);
 
-        if ($reflection->implementsInterface(Persistence\Proxy::class)) {
-            $parent = $reflection->getParentClass();
+		if ($reflection->implementsInterface(Persistence\Proxy::class)) {
+			$parent = $reflection->getParentClass();
 
-            if (!$parent) {
-                return null;
-            }
+			if (!$parent) {
+				return null;
+			}
 
-            $class = $parent->getName();
-        }
+			$class = $parent->getName();
+		}
 
-        foreach ($this->getManagers() as $name => $manager) {
-            if (!$manager->getMetadataFactory()->isTransient($class)) {
-                return $manager;
-            }
-        }
-    }
-
-
-    /**
-     * {@inheritdoc}
-     */
-    public function getManagerNames()
-    {
-        return array_keys($this->managerCollections);
-    }
+		foreach ($this->getManagers() as $name => $manager) {
+			if (!$manager->getMetadataFactory()->isTransient($class)) {
+				return $manager;
+			}
+		}
+	}
 
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getManagers()
-    {
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getManagerNames()
+	{
+		return array_keys($this->managerCollections);
+	}
+
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getManagers()
+	{
 		foreach ($this->managerCollections as $name => $collection) {
 			if (!$this->managers[$name]) {
 				$this->managers[$name] = $this->getManager($name);
 			}
 		}
 
-        return $this->managers;
-    }
+		return $this->managers;
+	}
 
 
 	/**
-     * {@inheritdoc}
-     */
-    public function getRepository($object_name, $manager_name = null)
-    {
+	 * {@inheritdoc}
+	 */
+	public function getRepository($object_name, $manager_name = null)
+	{
 		if ($manager_name) {
 			$manager = $this->getManager($manager_name);
 		} else {
 			$manager = $this->getManagerForClass($object_name) ?? $this->getManager();
 		}
 
-        return $manager->getRepository($object_name);
-    }
+		return $manager->getRepository($object_name);
+	}
 
 
 	/**
