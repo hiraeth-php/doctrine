@@ -20,7 +20,7 @@ class EntityManagerDelegate implements Hiraeth\Delegate
 	 * @access public
 	 * @return string The class for which the delegate operates
 	 */
-	static public function getClass(): string
+	public static function getClass(): string
 	{
 		return EntityManager::class;
 	}

@@ -12,9 +12,12 @@
         }
     ],
     "require": {
+    "hiraeth/app": "^2.0",
         "hiraeth/dbal": "^1.0",
         "doctrine/orm": "^2.6",
-        "cache/psr-6-doctrine-bridge": "^3.0"
+    "hiraeth/caching": "^1.0",
+    "cache/psr-6-doctrine-bridge": "^3.0",
+    "thadafinser/psr6-null-cache": "dev-master as 1.0"
     },
     "autoload": {
         "classmap": ["src/"]
@@ -28,6 +31,7 @@
         }
     },
     "require-dev": {
-        "phpstan/phpstan": "^0.11.8"
+        "phpstan/phpstan": "^0.11.8",
+        "friendsofphp/php-cs-fixer": "^2.15"
     }
 }

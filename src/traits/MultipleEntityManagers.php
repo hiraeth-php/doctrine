@@ -13,6 +13,12 @@ use Doctrine\ORM\Tools\Console\Helper\EntityManagerHelper;
 trait MultipleEntityManagers
 {
 	/**
+	 * @var ManagerRegistry|null
+	 */
+	protected $registry = NULL;
+
+
+	/**
 	 *
 	 */
 	public function __construct(ManagerRegistry $registry)

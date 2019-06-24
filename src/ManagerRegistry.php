@@ -4,6 +4,7 @@ namespace Hiraeth\Doctrine;
 
 use Hiraeth;
 use Doctrine\ORM;
+use Doctrine\DBAL;
 use Doctrine\Common\Persistence;
 use Doctrine\Common\Cache;
 
@@ -12,7 +13,6 @@ use RuntimeException;
 use InvalidArgumentException;
 use Hiraeth\Dbal\ConnectionRegistry;
 use Hiraeth\Caching\PoolManagerInterface;
-use Doctrine\ORM\Proxy\ProxyFactory;
 use Cache\Bridge\Doctrine\DoctrineCacheBridge;
 
 /**
@@ -73,7 +73,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			foreach ($config as $name => $collection) {
 				if (isset($this->managerCollections[$name])) {
 					throw new RuntimeException(sprintf(
-						'Cannot add manager "%s", name already used', $name
+						'Cannot add manager "%s", name already used',
+						$name
 					));
 				}
 
@@ -103,7 +104,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getConnection($name = null): object
+	public function getConnection($name = null): DBAL\Connection
 	{
 		return $this->connectionRegistry->getConnection($name);
 	}
@@ -148,7 +149,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getManager($name = null)
+	public function getManager($name = null): Persistence\ObjectManager
 	{
 		if ($name === null) {
 			$name = $this->defaultManager;
@@ -170,13 +171,15 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$cache = $this->app->get(Cache\ArrayCache::class);
 
 				$config->setAutoGenerateProxyClasses(TRUE);
-				$config->setAutoGenerateProxyClasses(ProxyFactory::AUTOGENERATE_EVAL);
-
+				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_EVAL);
 			} else {
-				if (isset($config['cache'])) {
-					$pool  = $this->pools->get($config['cache']);
-					$cache = new DoctrineCacheBridge($pool);
+				if (isset($options['cache'])) {
+					$pool = $this->pools->get($options['cache']);
+				} else {
+					$pool = $this->pools->getDefaultPool();
 				}
+
+				$cache = new DoctrineCacheBridge($pool);
 			}
 
 			foreach ($options['paths'] as $path) {
