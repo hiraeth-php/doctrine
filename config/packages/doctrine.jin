@@ -42,9 +42,10 @@
 [console]
 
 	commands = [
-		"Doctrine\ORM\Tools\Console\Command\SchemaTool\CreateCommand",
-		"Doctrine\ORM\Tools\Console\Command\SchemaTool\UpdateCommand",
-		"Doctrine\ORM\Tools\Console\Command\SchemaTool\DropCommand"
+		"Hiraeth\Doctrine\GenerateProxiesCommand",
+		"Hiraeth\Doctrine\SchemaCreateCommand",
+		"Hiraeth\Doctrine\SchemaUpdateCommand",
+		"Hiraeth\Doctrine\SchemaDropCommand"
 	]
 
 	helpers = {

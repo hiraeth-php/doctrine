@@ -2,12 +2,12 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Tools\Console\Command\SchemaTool\UpdateCommand;
+use Doctrine\ORM\Tools\Console\Command\SchemaTool;
 
 /**
  *
  */
-class SchemaUpdateCommand extends UpdateCommand
+class SchemaUpdateCommand extends SchemaTool\UpdateCommand
 {
 	use MultipleEntityManagers;
 }

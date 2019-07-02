@@ -2,12 +2,12 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Tools\Console\Command\SchemaTool\DropCommand;
+use Doctrine\ORM\Tools\Console\Command\SchemaTool;
 
 /**
  *
  */
-class SchemaDropCommand extends DropCommand
+class SchemaDropCommand extends SchemaTool\DropCommand
 {
 	use MultipleEntityManagers;
 }
