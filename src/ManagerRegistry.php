@@ -53,6 +53,12 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 *
 	 */
+	protected $paths = array();
+
+
+	/**
+	 *
+	 */
 	protected $pools = NULL;
 
 
@@ -83,6 +89,21 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 		}
 
 		$app->share($this);
+	}
+
+
+	/**
+	 *
+	 */
+	public function addEntityPath($name, $path): ManagerRegistry
+	{
+		if (!isset($this->paths[$name])) {
+			$this->paths[$name] = array();
+		}
+
+		$this->paths[$name][] = $path;
+
+		return $this;
 	}
 
 
@@ -184,6 +205,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 			foreach ($options['paths'] as $path) {
 				$paths[] = $this->app->getDirectory($path)->getPathname();
+			}
+
+			if (isset($this->paths[$name])) {
+				$paths = array_merge($paths, $this->paths[$name]);
 			}
 
 			$proxy_ns  = $options['proxy']['namespace'] ?? 'Proxies\\Default';
