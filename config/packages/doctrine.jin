@@ -42,10 +42,10 @@
 [console]
 
 	commands = [
-		"Hiraeth\Doctrine\GenerateProxiesCommand",
-		"Hiraeth\Doctrine\SchemaCreateCommand",
-		"Hiraeth\Doctrine\SchemaUpdateCommand",
-		"Hiraeth\Doctrine\SchemaDropCommand"
+		"orm:generate:proxies":   "Hiraeth\Doctrine\GenerateProxiesCommand",
+		"orm:schema-tool:create": "Hiraeth\Doctrine\SchemaCreateCommand",
+		"orm:schema-tool:update": "Hiraeth\Doctrine\SchemaUpdateCommand",
+		"orm:schema-tool:drop":   "Hiraeth\Doctrine\SchemaDropCommand"
 	]
 
 	helpers = {
