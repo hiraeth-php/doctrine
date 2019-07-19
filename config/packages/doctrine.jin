@@ -41,12 +41,12 @@
 
 [console]
 
-	commands = [
+	commands = {
 		"orm:generate:proxies":   "Hiraeth\Doctrine\GenerateProxiesCommand",
 		"orm:schema-tool:create": "Hiraeth\Doctrine\SchemaCreateCommand",
 		"orm:schema-tool:update": "Hiraeth\Doctrine\SchemaUpdateCommand",
 		"orm:schema-tool:drop":   "Hiraeth\Doctrine\SchemaDropCommand"
-	]
+	}
 
 	helpers = {
 		"em": "Doctrine\ORM\Tools\Console\Helper\EntityManagerHelper"
