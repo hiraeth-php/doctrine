@@ -31,10 +31,10 @@
 		;
 		;
 
-		namespace = Proxies\Default
+		namespace = Proxies
 
 		;
 		;
 		;
 
-		directory = storage/proxies/default
+		directory = storage/proxies
