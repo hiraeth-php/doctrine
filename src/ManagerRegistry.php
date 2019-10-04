@@ -277,7 +277,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	public function getManagers()
 	{
 		foreach ($this->managerCollections as $name => $collection) {
-			if (!$this->managers[$name]) {
+			if (!isset($this->managers[$name])) {
 				$this->managers[$name] = $this->getManager($name);
 			}
 		}
