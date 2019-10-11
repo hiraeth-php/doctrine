@@ -121,6 +121,7 @@ class Repository extends EntityRepository
 		$bclone = clone $builder;
 
 		$bclone->select('count(this)');
+		$bclone->resetDQLPart('orderBy');
 
 		if ($non_limited) {
 			$bclone->setMaxResults(NULL);
