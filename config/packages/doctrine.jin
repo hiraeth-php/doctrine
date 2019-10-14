@@ -7,7 +7,9 @@
 	;
 
 	aliases = {
-		"Doctrine\ORM\EntityManagerInterface": "Doctrine\ORM\EntityManager"
+		"Doctrine\ORM\EntityManagerInterface": "Doctrine\ORM\EntityManager",
+		"AbstractRepository": "Hiraeth\Doctrine\AbstractRepository",
+		"AbstractEntity": "Hiraeth\Doctrine\AbstractEntity"
 	}
 
 	;
