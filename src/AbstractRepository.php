@@ -12,7 +12,7 @@ use InvalidArgumentException;
 /**
  *
  */
-class Repository extends EntityRepository
+abstract class AbstractRepository extends EntityRepository
 {
 	/**
 	 *
