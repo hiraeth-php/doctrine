@@ -6,7 +6,7 @@ use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\EntityManagerInterface as EntityManager;
-use Doctrine\Common\Collections\Collection as CollectionInterface;
+use Doctrine\Common\Collections;
 use InvalidArgumentException;
 
 /**
@@ -158,7 +158,7 @@ abstract class AbstractRepository extends EntityRepository
 			// This enables us to pass a collection as an array for `IN()` criteria
 			//
 
-			if ($value instanceof CollectionInterface) {
+			if ($value instanceof Collections\Collection) {
 				$criteria[$key] = $value->getValues();
 			}
 		}

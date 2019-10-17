@@ -75,8 +75,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$this->pools = $app->get(PoolManagerInterface::class);
 		}
 
-		foreach ($app->getConfig('*', 'doctrine.managers', []) as $config) {
-			foreach ($config as $name => $collection) {
+		foreach ($app->getConfig('*', 'manager', []) as $path => $config) {
+			if (isset($config['connection'])) {
+				$name = basename($path);
+
 				if (isset($this->managerCollections[$name])) {
 					throw new RuntimeException(sprintf(
 						'Cannot add manager "%s", name already used',
@@ -84,7 +86,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 					));
 				}
 
-				$this->managerCollections[$name] = $collection;
+				$this->managerCollections[$name] = $path;
 			}
 		}
 

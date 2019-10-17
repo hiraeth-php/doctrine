@@ -35,12 +35,6 @@
 
 	]
 
-[doctrine]
-
-	managers = {
-		"default": "doctrine/default"
-	}
-
 [console]
 
 	commands = {
