@@ -47,88 +47,20 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function collect(Query ...$queries)
-	{
-		$collection = new static::$collection([]);
-
-		foreach ($queries as $query) {
-			$collection = new static::$collection(array_merge(
-				$collection->toArray(),
-				$query->getResult()
-			));
-		}
-
-		return $collection;
-	}
-
-
-
-
-
-	/**
-	 *
-	 */
-	public function create()
+	public function create(array $data = array()): AbstractEntity
 	{
 		return new static::$entity;
 	}
 
 
 	/**
-	  *
-	 */
-	public function build($build_callback, &$nonlimited_count = NULL)
-	{
-		$builder = $this->_em
-			-> createQueryBuilder()
-			-> select('this')
-			-> from(static::$entity, 'this')
-		;
-
-		foreach (static::$order as $property => $direction) {
-			$builder->addOrderBy('this.' . $property, $direction);
-		}
-
-		if (is_callable($build_callback)) {
-			$build_callback($builder);
-		} elseif (is_string($build_callback) || is_array($build_callback)) {
-			settype($build_callback, 'array');
-
-			foreach ($build_callback as $method) {
-				if (!is_callable($method)) {
-					$method = [$this, 'query' . ucfirst($method)];
-				}
-
-				$method($builder);
-			}
-		} else {
-			throw new InvalidArgumentException('Invalid builder type');
-		}
-
-		if (func_num_args() == 2) {
-			$nonlimited_count = $this->buildCount($builder, TRUE);
-		}
-
-		return $builder->getQuery();
-	}
-
-
-	/**
 	 *
 	 */
-	public function buildCount(QueryBuilder $builder, $non_limited = FALSE)
+	public function merge($entity): AbstractRepository
 	{
-		$bclone = clone $builder;
+		$this->_em->merge($entity);
 
-		$bclone->select('count(this)');
-		$bclone->resetDQLPart('orderBy');
-
-		if ($non_limited) {
-			$bclone->setMaxResults(NULL);
-			$bclone->setFirstResult(0);
-		}
-
-		return $bclone->getQuery()->getSingleScalarResult();
+		return $this;
 	}
 
 
@@ -179,11 +111,44 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	  *
+	 */
+	public function query($build_callback, &$nonlimited_count = NULL)
+	{
+		$builder = $this->build($build_callback);
+
+		if (empty($builder->getDQLPart('orderBy'))) {
+			foreach (static::$order as $property => $direction) {
+				$builder->addOrderBy('this.' . $property, $direction);
+			}
+		}
+
+		if (func_num_args() == 2) {
+			$nonlimited_count = $this->queryCount(function() use ($builder) {
+				return $builder;
+			}, TRUE);
+		}
+
+		return $this->collect($builder->getQuery());
+	}
+
+
+	/**
 	 *
 	 */
-	public function merge($entity)
+	public function queryCount($build_callback, $non_limited = FALSE)
 	{
-		$this->_em->merge($entity);
+		$builder = $this->build($build_callback);
+
+		$builder->select('count(this)');
+		$builder->resetDQLPart('orderBy');
+
+		if ($non_limited) {
+			$builder->setMaxResults(NULL);
+			$builder->setFirstResult(0);
+		}
+
+		return $builder->getQuery()->getSingleScalarResult();
 	}
 
 
@@ -206,5 +171,54 @@ abstract class AbstractRepository extends EntityRepository
 		if ($flush) {
 			$this->_em->flush($entity);
 		}
+	}
+
+
+	/**
+	 *
+	 */
+	protected function build($build_callback): QueryBuilder
+	{
+		$builder = $this->_em
+			-> createQueryBuilder()
+			-> select('this')
+			-> from(static::$entity, 'this')
+		;
+
+		if (is_callable($build_callback)) {
+			$builder = $build_callback($builder);
+		} elseif (is_string($build_callback) || is_array($build_callback)) {
+			settype($build_callback, 'array');
+
+			foreach ($build_callback as $method) {
+				if (!is_callable($method)) {
+					$method = [$this, 'build' . ucfirst($method)];
+				}
+
+				$builder = $method($builder);
+			}
+		} else {
+			throw new InvalidArgumentException('Invalid builder type');
+		}
+
+		return $builder;
+	}
+
+
+	/**
+	 *
+	 */
+	protected function collect(Query ...$queries)
+	{
+		$collection = new static::$collection([]);
+
+		foreach ($queries as $query) {
+			$collection = new static::$collection(array_merge(
+				$collection->toArray(),
+				$query->getResult()
+			));
+		}
+
+		return $collection;
 	}
 }
