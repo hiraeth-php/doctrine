@@ -125,7 +125,7 @@ abstract class AbstractRepository extends EntityRepository
 
 		if (func_num_args() == 2) {
 			$nonlimited_count = $this->queryCount(function() use ($builder) {
-				return $builder;
+				return clone $builder;
 			}, TRUE);
 		}
 
