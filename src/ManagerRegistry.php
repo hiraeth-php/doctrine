@@ -5,6 +5,7 @@ namespace Hiraeth\Doctrine;
 use Hiraeth;
 use Doctrine\ORM;
 use Doctrine\DBAL;
+use Doctrine\ORM\Query;
 use Doctrine\Common\Persistence;
 use Doctrine\Common\Cache;
 
@@ -187,7 +188,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$config     = new ORM\Configuration();
 			$collection = $this->managerCollections[$name];
 			$options    = $this->app->getConfig($collection, 'manager', []) + [
-				'connection' => 'default'
+				'cache'      => NULL,
+				'connection' => 'default',
+				'walkers'    => [],
+				'paths'      => []
 			];
 
 			if ($this->app->isDebugging()) {
@@ -196,7 +200,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$config->setAutoGenerateProxyClasses(TRUE);
 				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_EVAL);
 			} else {
-				if (isset($options['cache'])) {
+				if ($options['cache']) {
 					$pool = $this->pools->get($options['cache']);
 				} else {
 					$pool = $this->pools->getDefaultPool();
@@ -217,7 +221,14 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$proxy_dir = $options['proxy']['directory'] ?? 'storage/proxies/default';
 			$driver    = $config->newDefaultAnnotationDriver($paths);
 
-			$config->setProxyDir($this->app->getDirectory($proxy_dir, TRUE)->getPathname());
+			if ($options['walkers']) {
+				$config->setDefaultQueryHint(
+					Query::HINT_CUSTOM_TREE_WALKERS,
+					$options['walkers']
+				);
+			}
+
+			$config->setProxyDir($this->app->getDirectory($proxy_dir, TRUE)->getRealPath());
 			$config->setProxyNamespace($proxy_ns);
 			$config->setMetadataDriverImpl($driver);
 			$config->setMetadataCacheImpl($cache);
