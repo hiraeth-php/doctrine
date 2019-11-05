@@ -190,7 +190,6 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$options    = $this->app->getConfig($collection, 'manager', []) + [
 				'cache'      => NULL,
 				'connection' => 'default',
-				'walkers'    => [],
 				'paths'      => []
 			];
 
@@ -221,11 +220,12 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$proxy_dir = $options['proxy']['directory'] ?? 'storage/proxies/default';
 			$driver    = $config->newDefaultAnnotationDriver($paths);
 
-			if ($options['walkers']) {
-				$config->setDefaultQueryHint(
-					Query::HINT_CUSTOM_TREE_WALKERS,
-					$options['walkers']
-				);
+			if (!empty($options['walkers']['output'])) {
+				$config->setDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
+			}
+
+			if (!empty($options['walkers']['tree'])) {
+				$config->setDefaultQueryHint(Query::HINT_CUSTOM_TREE_WALKERS, $options['walkers']['tree']);
 			}
 
 			$config->setProxyDir($this->app->getDirectory($proxy_dir, TRUE)->getRealPath());

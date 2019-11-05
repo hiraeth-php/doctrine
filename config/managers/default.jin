@@ -20,7 +20,6 @@
 		"local/entities"
 	]
 
-
 	;
 	;
 	;
@@ -38,3 +37,23 @@
 		;
 
 		directory = storage/proxies
+
+	;
+	;
+	;
+
+	[&.walkers]
+
+		;
+		;
+		;
+
+		output = NULL
+
+		;
+		;
+		;
+
+		tree = [
+
+		]

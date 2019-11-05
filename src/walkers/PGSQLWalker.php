@@ -4,7 +4,7 @@ namespace Hiraeth\Doctrine;
 
 use Doctrine\ORM\Query\SqlWalker;
 
-class ILikeWalker extends SqlWalker
+class PGSQLWalker extends SqlWalker
 {
 	/**
 	 *
