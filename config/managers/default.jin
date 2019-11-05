@@ -1,23 +1,31 @@
 [manager]
 
 	;
-	;
+	; The hiraeth\dbal connection to use
 	;
 
 	connection = default
 
 	;
-	;
+	; The hiraeth\caching cache pool to use
 	;
 
 	cache = default
 
 	;
-	;
+	; The application relative paths where entities for this manager can be found
 	;
 
 	paths = [
 		"local/entities"
+	]
+
+	;
+	; A list of event subscribers
+	;
+
+	subscribers = [
+
 	]
 
 	;

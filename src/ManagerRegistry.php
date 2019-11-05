@@ -188,9 +188,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$config     = new ORM\Configuration();
 			$collection = $this->managerCollections[$name];
 			$options    = $this->app->getConfig($collection, 'manager', []) + [
-				'cache'      => NULL,
-				'connection' => 'default',
-				'paths'      => []
+				'cache'       => NULL,
+				'connection'  => 'default',
+				'subscribers' => [],
+				'paths'       => []
 			];
 
 			if ($this->app->isDebugging()) {
@@ -209,7 +210,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			}
 
 			foreach ($options['paths'] as $path) {
-				$paths[] = $this->app->getDirectory($path)->getPathname();
+				$paths[] = $this->app->getDirectory($path)->getRealPath();
 			}
 
 			if (isset($this->paths[$name])) {
@@ -238,6 +239,17 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$this->getConnection($options['connection']),
 				$config
 			);
+
+			//
+			// Event Subscribers are added after to prevent cyclical dependencies in the event
+			// the subscriber has a repository or entity manager re-injected
+			//
+
+			foreach ($options['subscribers'] as $subscriber) {
+				$this->managers[$name]->getEventManager()->addEventSubscriber(
+					$this->app->get($subscriber)
+				);
+			}
 		}
 
 		return $this->managers[$name];
