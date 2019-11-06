@@ -132,6 +132,19 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+ 	 *
+	 */
+	public function find($id, $lock_mode = NULL, $lock_version = NULL)
+	{
+		if ($id === NULL) {
+			return NULL;
+		}
+
+		return parent::find($id, $lock_mode, $lock_version);
+	}
+
+
+	/**
 	 * Standard findAll with the option to add an orderBy
 	 *
 	 * {@inheritDoc}
