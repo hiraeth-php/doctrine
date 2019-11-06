@@ -7,13 +7,22 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\EntityManagerInterface as EntityManager;
 use Doctrine\Common\Collections;
+use Doctrine\DBAL\Types\Type;
 use InvalidArgumentException;
+use ReflectionProperty;
+use ReflectionClass;
 
 /**
  *
  */
 abstract class AbstractRepository extends EntityRepository
 {
+	/**
+	 *
+	 */
+	protected static $allow = [];
+
+
 	/**
 	 *
 	 */
@@ -35,6 +44,12 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
+	protected static $reflections = [];
+
+
+	/**
+	 *
+	 */
 	public function __construct(ManagerRegistry $registry)
 	{
 		$manager   = $registry->getManagerForClass(static::$entity);
@@ -49,7 +64,23 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function create(array $data = array()): AbstractEntity
 	{
-		return new static::$entity;
+
+		$entity = new static::$entity;
+
+		$this->update($entity, $data);
+
+		return $entity;
+	}
+
+
+	/**
+	 *
+	 */
+	public function detach($entity): AbstractRepository
+	{
+		$this->_em->detach($entity);
+
+		return $this;
 	}
 
 
@@ -65,23 +96,59 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 *
+	 */
+	public function remove($entity)
+	{
+		$this->_em->remove($entity);
+	}
+
+
+	/**
+	 *
+	 */
+	public function store($entity, $flush = FALSE): AbstractRepository
+	{
+		$this->_em->persist($entity);
+
+		if ($flush) {
+			$this->_em->flush($entity);
+		}
+
+		return $this;
+	}
+
+
+	/**
+	 *
+	 */
+	public function update(AbstractEntity $entity, array $data): AbstractRepository
+	{
+		$this->updateProperties($entity, $data);
+//		$this->updateAssociations($entity, $data);
+
+		return $this;
+	}
+
+
+	/**
 	 * Standard findAll with the option to add an orderBy
 	 *
 	 * {@inheritDoc}
-	 * @param array $orderBy The order by clause to add
+	 * @param array $order_by The order by clause to add
 	 */
-	public function findAll(array $orderBy = array())
+	public function findAll(array $order_by = array())
 	{
-		return $this->findBy([], $orderBy);
+		return $this->findBy([], $order_by);
 	}
 
 
 	/**
 	 * {@inheritDoc}
 	 */
-	public function findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+	public function findBy(array $criteria, array $order_by = null, $limit = null, $offset = null)
 	{
-		$orderBy   = array_merge((array) $orderBy, static::$order);
+		$order_by  = array_merge((array) $order_by, static::$order);
 		$persister = $this->_em->getUnitOfWork()->getEntityPersister($this->_entityName);
 
 		foreach ($criteria as $key => $value) {
@@ -95,18 +162,18 @@ abstract class AbstractRepository extends EntityRepository
 			}
 		}
 
-		return new static::$collection($persister->loadAll($criteria, $orderBy, $limit, $offset));
+		return new static::$collection($persister->loadAll($criteria, $order_by, $limit, $offset));
 	}
 
 
 	/**
 	 * {@inheritDoc}
 	 */
-	public function findOneBy(array $criteria, array $orderBy = null)
+	public function findOneBy(array $criteria, array $order_by = null)
 	{
-		$orderBy = array_merge((array) $orderBy, static::$order);
+		$order_by = array_merge((array) $order_by, static::$order);
 
-		return parent::findOneBy($criteria, $orderBy);
+		return parent::findOneBy($criteria, $order_by);
 	}
 
 
@@ -149,28 +216,6 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $builder->getQuery()->getSingleScalarResult();
-	}
-
-
-	/**
-	 *
-	 */
-	public function remove($entity)
-	{
-		$this->_em->remove($entity);
-	}
-
-
-	/**
-	 *
-	 */
-	public function store($entity, $flush = FALSE)
-	{
-		$this->_em->persist($entity);
-
-		if ($flush) {
-			$this->_em->flush($entity);
-		}
 	}
 
 
@@ -220,5 +265,75 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $collection;
+	}
+
+
+	/**
+	 *
+	 */
+	protected function reflectProperty(object $object, $name): ReflectionProperty
+	{
+		$class = get_class($object);
+
+		if (!isset(static::$reflections[$class])) {
+			static::$reflections[$class]['@'] = new ReflectionClass($class);
+		}
+
+		if (!isset(static::$reflections[$class][$name])) {
+			static::$reflections[$class][$name] = static::$reflections[$class]['@']->getProperty($name);
+			static::$reflections[$class][$name]->setAccessible(TRUE);
+		}
+
+		return static::$reflections[$class][$name];
+	}
+
+
+	/**
+	 *
+	 */
+	protected function updateProperties(object $object, array $data, string $prefix = NULL)
+	{
+		$meta_data = $this->getClassMetaData();
+		$platform  = $this->getEntityManager()->getConnection()->getDatabasePlatform();
+
+		foreach ($data as $field => $value) {
+			$full_field = $prefix ? $prefix . '.' . $field : $field;
+
+			if (array_intersect(['*', $full_field], static::$protect)) {
+				continue;
+			}
+
+			if (array_key_exists($full_field, $meta_data->fieldMappings)) {
+				$type  = Type::getType($meta_data->fieldMappings[$full_field]['type'] ?? 'string');
+				$value = $type->convertToPHPValue($value, $platform);
+
+				$this->updateProperty($object, $field, $value);
+			}
+
+			if (array_key_exists($full_field, $meta_data->embeddedClasses)) {
+				$property   = $this->reflectProperty($object, $field);
+				$embeddable = $property->getValue($object);
+
+				if (!$embeddable) {
+					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
+					$this->updateProperty($object, $field, $embeddable);
+				}
+
+				$this->updateProperties($embeddable, $value, $field);
+			}
+		}
+	}
+
+
+	/**
+	 *
+	 */
+	protected function updateProperty(object $object, $name, $value): AbstractRepository
+	{
+		$property = $this->reflectProperty($object, $name);
+
+		$property->setValue($object, $value);
+
+		return $this;
 	}
 }
