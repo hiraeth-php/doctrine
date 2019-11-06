@@ -20,12 +20,6 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	protected static $allow = [];
-
-
-	/**
-	 *
-	 */
 	protected static $entity = NULL;
 
 
@@ -39,6 +33,12 @@ abstract class AbstractRepository extends EntityRepository
 	 *
 	 */
 	protected static $order = [];
+
+
+	/**
+	 *
+	 */
+	protected static $protect = [];
 
 
 	/**
