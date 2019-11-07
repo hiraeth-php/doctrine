@@ -177,7 +177,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function queryCount($build_callback, $non_limited = FALSE): integer
+	public function queryCount($build_callback, $non_limited = FALSE): int
 	{
 		$builder = $this->build($build_callback);
 
