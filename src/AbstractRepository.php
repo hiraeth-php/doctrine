@@ -2,6 +2,11 @@
 
 namespace Hiraeth\Doctrine;
 
+use RuntimeException;
+use InvalidArgumentException;
+use ReflectionProperty;
+use ReflectionClass;
+
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityRepository;
@@ -9,9 +14,6 @@ use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\ORM\EntityManagerInterface as EntityManager;
 use Doctrine\Common\Collections;
 use Doctrine\DBAL\Types\Type;
-use InvalidArgumentException;
-use ReflectionProperty;
-use ReflectionClass;
 
 /**
  *
