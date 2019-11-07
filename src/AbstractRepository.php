@@ -38,12 +38,6 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	protected static $protect = [];
-
-
-	/**
-	 *
-	 */
 	protected static $reflections = [];
 
 
@@ -56,6 +50,17 @@ abstract class AbstractRepository extends EntityRepository
 		$meta_data = $manager->getClassMetaData(static::$entity);
 
 		parent::__construct($manager, $meta_data);
+	}
+
+
+	/**
+	 *
+	 */
+	public function attach($entity): AbstractRepository
+	{
+		$this->_em->merge($entity);
+
+		return $this;
 	}
 
 
@@ -79,53 +84,6 @@ abstract class AbstractRepository extends EntityRepository
 	public function detach($entity): AbstractRepository
 	{
 		$this->_em->detach($entity);
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	public function merge($entity): AbstractRepository
-	{
-		$this->_em->merge($entity);
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	public function remove($entity)
-	{
-		$this->_em->remove($entity);
-	}
-
-
-	/**
-	 *
-	 */
-	public function store($entity, $flush = FALSE): AbstractRepository
-	{
-		$this->_em->persist($entity);
-
-		if ($flush) {
-			$this->_em->flush($entity);
-		}
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	public function update(AbstractEntity $entity, array $data): AbstractRepository
-	{
-		$this->updateProperties($entity, $data);
-//		$this->updateAssociations($entity, $data);
 
 		return $this;
 	}
@@ -193,7 +151,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	  *
 	 */
-	public function query($build_callback, &$nonlimited_count = NULL)
+	public function query($build_callback, &$nonlimited_count = NULL): Collections\Collection
 	{
 		$builder = $this->build($build_callback);
 
@@ -216,7 +174,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function queryCount($build_callback, $non_limited = FALSE)
+	public function queryCount($build_callback, $non_limited = FALSE): integer
 	{
 		$builder = $this->build($build_callback);
 
@@ -229,6 +187,48 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $builder->getQuery()->getSingleScalarResult();
+	}
+
+
+	/**
+	 *
+	 */
+	public function remove($entity, $flush = FALSE): AbstractRepository
+	{
+		$this->_em->remove($entity);
+
+		if ($flush) {
+			$this->_em->flush($entity);
+		}
+
+		return $this;
+	}
+
+
+	/**
+	 *
+	 */
+	public function store($entity, $flush = FALSE): AbstractRepository
+	{
+		$this->_em->persist($entity);
+
+		if ($flush) {
+			$this->_em->flush($entity);
+		}
+
+		return $this;
+	}
+
+
+	/**
+	 *
+	 */
+	public function update(AbstractEntity $entity, array $data): AbstractRepository
+	{
+		$this->updateProperties($entity, $data);
+		$this->updateAssociations($entity, $data);
+
+		return $this;
 	}
 
 
@@ -266,7 +266,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	protected function collect(Query ...$queries)
+	protected function collect(Query ...$queries): Collections\Collection
 	{
 		$collection = new static::$collection([]);
 
@@ -301,10 +301,21 @@ abstract class AbstractRepository extends EntityRepository
 	}
 
 
+
 	/**
 	 *
 	 */
-	protected function updateProperties(object $object, array $data, string $prefix = NULL)
+	protected function updateAssociations(object $object, array $data):  AbstractRepository
+	{
+
+		return $this;
+	}
+
+
+	/**
+	 *
+	 */
+	protected function updateProperties(object $object, array $data, string $prefix = NULL): AbstractRepository
 	{
 		$meta_data = $this->getClassMetaData();
 		$platform  = $this->getEntityManager()->getConnection()->getDatabasePlatform();
@@ -312,7 +323,7 @@ abstract class AbstractRepository extends EntityRepository
 		foreach ($data as $field => $value) {
 			$full_field = $prefix ? $prefix . '.' . $field : $field;
 
-			if (array_intersect(['*', $full_field], static::$protect)) {
+			if (array_intersect(['*', $full_field], $object::$_protect ?? ['*'])) {
 				continue;
 			}
 
@@ -332,9 +343,11 @@ abstract class AbstractRepository extends EntityRepository
 					$this->updateProperty($object, $field, $embeddable);
 				}
 
-				$this->updateProperties($embeddable, $value, $field);
+				$this->updateProperties($embeddable, $value, $full_field);
 			}
 		}
+
+		return $this;
 	}
 
 
