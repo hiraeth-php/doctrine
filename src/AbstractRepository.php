@@ -101,6 +101,12 @@ abstract class AbstractRepository extends EntityRepository
 			return NULL;
 		}
 
+		if (is_array($id)) {
+			$meta_data   = $this->getClassMetadata();
+			$field_names = $meta_data->getIdentifierFieldNames();
+			$id          = array_intersect_key($id, array_flip($field_names));
+		}
+
 		return parent::find($id, $lock_mode, $lock_version);
 	}
 
@@ -114,6 +120,37 @@ abstract class AbstractRepository extends EntityRepository
 	public function findAll(array $order_by = array())
 	{
 		return $this->findBy([], $order_by);
+	}
+
+
+
+	/**
+	 *
+	 */
+	public function findAssociated($field, $id, $lock_mode = NULL, $lock_version = NULL)
+	{
+		if ($id === NULL) {
+			return NULL;
+		}
+
+		$meta_data = $this->getClassMetadata();
+		$mapping   = $meta_data->getAssociationMapping($field);
+		$class     = $mapping['targetEntity'] ?? NULL;
+
+		if (!$class) {
+			throw new RuntimeException(
+				'Could not determine target entity for field "%s"',
+				$field
+			);
+		}
+
+		if (is_array($id)) {
+			$related_meta_data = $this->getEntityManager()->getClassMetadata($class);
+			$field_names       = $related_meta_data->getIdentifierFieldNames();
+			$id                = array_intersect_key($id, array_flip($field_names));
+		}
+
+		return $this->getEntityManager()->find($class, $id, $lock_mode, $lock_version);
 	}
 
 
@@ -323,12 +360,12 @@ abstract class AbstractRepository extends EntityRepository
 				switch ($mapping['type']) {
 					case ClassMetadataInfo::ONE_TO_ONE:
 					case ClassMetadataInfo::MANY_TO_ONE:
-						$this->updateAssociationToOne($object, $field, $mapping, $value);
+						$this->updateAssociationToOne($object, $field, $value);
 						break;
 
 					case ClassMetadataInfo::ONE_TO_MANY:
 					case ClassMetadataInfo::MANY_TO_MANY:
-						$this->updateAssociationToMany($object, $field, $mapping, $value);
+						$this->updateAssociationToMany($object, $field, $value);
 						break;
 
 					default:
@@ -347,27 +384,25 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	protected function updateAssociationToMany(object $object, string $field, array $mapping, $values):  AbstractRepository
+	protected function updateAssociationToMany(object $object, string $field, $values):  AbstractRepository
 	{
+		settype($values, 'array');
+
 		$collection = new Collections\ArrayCollection();
 
-		if (!empty($mapping)) {
-			settype($values, 'array');
+		foreach ($values as $value) {
+			$related_entity = $this->findAssociated($field, $value);
 
-			foreach ($values as $value) {
-				$related_entity = $this->getEntityManager()->find($mapping['targetEntity'], $value);
-
-				if ($related_entity) {
-					if (is_array($value)) {
-						$this->update($related_entity, $value);
-					}
-
-					$collection->add($related_entity);
+			if ($related_entity) {
+				if (is_array($value)) {
+					$this->update($related_entity, $value);
 				}
-			}
 
-			$this->updateProperty($object, $field, $collection);
+				$collection->add($related_entity);
+			}
 		}
+
+		$this->updateProperty($object, $field, $collection);
 
 		return $this;
 	}
@@ -376,17 +411,15 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	protected function updateAssociationToOne(object $object, string $field, array $mapping, $value):  AbstractRepository
+	protected function updateAssociationToOne(object $object, string $field, $value):  AbstractRepository
 	{
-		if (!empty($mapping)) {
-			$related_entity = $this->getEntityManager()->find($mapping['targetEntity'], $value);
+		$related_entity = $this->findAssociated($field, $value);
 
-			if (is_array($value)) {
-				$this->update($related_entity, $value);
-			}
-
-			$this->updateProperty($object, $field, $related_entity);
+		if (is_array($value)) {
+			$this->update($related_entity, $value);
 		}
+
+		$this->updateProperty($object, $field, $related_entity);
 
 		return $this;
 	}
