@@ -44,7 +44,7 @@
 		;
 		;
 
-		directory = storage/proxies
+		directory = dir(storage/proxies/default)
 
 	;
 	;

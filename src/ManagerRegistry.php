@@ -217,9 +217,11 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$paths = array_merge($paths, $this->paths[$name]);
 			}
 
-			$proxy_ns  = $options['proxy']['namespace'] ?? 'Proxies\\Default';
-			$proxy_dir = $options['proxy']['directory'] ?? 'storage/proxies/default';
 			$driver    = $config->newDefaultAnnotationDriver($paths);
+			$proxy_ns  = $options['proxy']['namespace'] ?? 'Proxies\\Default';
+			$proxy_dir = $options['proxy']['directory'] ?? $this->app->getDirectory(
+				'storage/proxies/default'
+			);
 
 			if (!empty($options['walkers']['output'])) {
 				$config->setDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
@@ -229,7 +231,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$config->setDefaultQueryHint(Query::HINT_CUSTOM_TREE_WALKERS, $options['walkers']['tree']);
 			}
 
-			$config->setProxyDir($this->app->getDirectory($proxy_dir, TRUE)->getRealPath());
+			$config->setProxyDir($proxy_dir);
 			$config->setProxyNamespace($proxy_ns);
 			$config->setMetadataDriverImpl($driver);
 			$config->setMetadataCacheImpl($cache);
