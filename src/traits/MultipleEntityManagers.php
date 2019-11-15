@@ -34,9 +34,9 @@ trait MultipleEntityManagers
 	 */
 	public function configure()
 	{
-		$this->addArgument('manager', InputArgument::OPTIONAL, 'The name of the entity manager to use');
-
 		return parent::configure();
+
+		$this->addArgument('manager', InputArgument::OPTIONAL, 'The name of the entity manager to use');
 	}
 
 
