@@ -2,7 +2,7 @@
 
 namespace Hiraeth\Doctrine;
 
-use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Doctrine\ORM\Tools\Console\Helper\EntityManagerHelper;
@@ -34,7 +34,12 @@ trait MultipleEntityManagers
 	 */
 	public function configure()
 	{
-		$this->addOption('manager', 'm', InputOption::VALUE_REQUIRED, 'The name of the entity manager to use');
+		$this->addOption(
+			'manager', 'm',
+			InputOption::VALUE_REQUIRED,
+			'The name of the entity manager to use',
+			$this->registry->getDefaultManagerName()
+		);
 
 		return parent::configure();
 	}
