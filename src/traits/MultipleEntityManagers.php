@@ -34,9 +34,9 @@ trait MultipleEntityManagers
 	 */
 	public function configure()
 	{
-		return parent::configure();
+		$this->addOption('manager', 'm', InputOption::VALUE_REQUIRED, 'The name of the entity manager to use');
 
-		$this->addArgument('manager', InputArgument::OPTIONAL, 'The name of the entity manager to use');
+		return parent::configure();
 	}
 
 
@@ -45,7 +45,7 @@ trait MultipleEntityManagers
 	 */
 	public function execute(InputInterface $input, OutputInterface $output)
 	{
-		$manager = $input->getArgument('manager');
+		$manager = $input->getOption('manager');
 
 		if ($manager) {
 			$this->getHelperSet()->set(
