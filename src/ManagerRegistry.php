@@ -194,6 +194,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				'paths'       => []
 			];
 
+			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
+
 			if ($this->app->isDebugging()) {
 				$cache = $this->app->get(Cache\ArrayCache::class);
 
