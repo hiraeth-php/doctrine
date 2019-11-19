@@ -12,8 +12,8 @@ use Doctrine\Common\Cache;
 use ReflectionClass;
 use RuntimeException;
 use InvalidArgumentException;
+use Hiraeth\Caching\PoolManager;
 use Hiraeth\Dbal\ConnectionRegistry;
-use Hiraeth\Caching\PoolManagerInterface;
 use Cache\Bridge\Doctrine\DoctrineCacheBridge;
 
 /**
@@ -72,8 +72,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 		$this->defaultManager     = 'default';
 		$this->connectionRegistry = $connection_registry;
 
-		if ($app->has(PoolManagerInterface::class)) {
-			$this->pools = $app->get(PoolManagerInterface::class);
+		if ($app->has(PoolManager::class)) {
+			$this->pools = $app->get(PoolManager::class);
 		}
 
 		foreach ($app->getConfig('*', 'manager', []) as $path => $config) {
