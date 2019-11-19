@@ -26,7 +26,8 @@
     "extra": {
         "opus": {
             "hiraeth/app": {
-                "config": ""
+                "config": "",
+		"local": ""
             }
         }
     },
