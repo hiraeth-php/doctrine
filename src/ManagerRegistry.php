@@ -220,9 +220,9 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			}
 
 			$driver    = $config->newDefaultAnnotationDriver($paths);
-			$proxy_ns  = $options['proxy']['namespace'] ?? 'Proxies\\Default';
+			$proxy_ns  = $options['proxy']['namespace'] ?? 'Proxies' . md5($name);
 			$proxy_dir = $options['proxy']['directory'] ?? $this->app->getDirectory(
-				'storage/proxies/default'
+				'storage/proxies/' . $name
 			);
 
 			if (!empty($options['walkers']['output'])) {

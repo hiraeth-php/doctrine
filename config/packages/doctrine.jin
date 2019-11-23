@@ -32,7 +32,7 @@
 	;
 
 	providers = [
-
+		"Hiraeth\Doctrine\ApplicationProvider"
 	]
 
 [console]

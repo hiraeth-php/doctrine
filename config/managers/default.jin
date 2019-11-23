@@ -38,7 +38,7 @@
 		;
 		;
 
-		namespace = Proxies
+		namespace = DefaultProxies
 
 		;
 		;
