@@ -3,6 +3,9 @@
 namespace Hiraeth\Doctrine;
 
 use Doctrine\DBAL\Types\Type;
+use Doctrine\Common\Collections;
+use Doctrine\ORM\Mapping\ClassMetadataInfo;
+
 use InvalidArgumentException;
 use ReflectionException;
 use ReflectionProperty;
@@ -44,33 +47,79 @@ class Hydrator
 	/**
 	 *
 	 */
-	public function fill($entity, array $data, bool $protect = TRUE)
+	public function fill($entity, array $data, bool $protect = TRUE, string $prefix = NULL): Hydrator
 	{
-		$class          = get_class($entity);
-		$this->manager  = $this->registry->getManagerForClass($class);
-		$this->metaData = $this->manager->getClassMetaData($class);
-		$this->platform = $this->manager->getConnection()->getDatabasePlatform();
+		$class     = get_class($entity);
+		$manager   = $this->registry->getManagerForClass($class);
+		$platform  = $manager->getConnection()->getDatabasePlatform();
+		$meta_data = $manager->getClassMetaData($class);
 
-		$this->fillProperties($entity, $data, $protect);
+		foreach ($data as $field => $value) {
+			$full_field = $prefix
+				? $prefix . '.' . $field
+				: $field;
+
+			if ($protect && array_intersect(['*', $full_field], $entity::$_protect ?? ['*'])) {
+				continue;
+			}
+
+			if (array_key_exists($full_field, $meta_data->embeddedClasses)) {
+				$property   = $this->reflectProperty($entity, $field);
+				$embeddable = $property->getValue($entity);
+
+				if (!$embeddable) {
+					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
+					$this->fillProperty($entity, $field, $embeddable);
+				}
+
+				$this->fillProperties($embeddable, $value, $protect, $full_field);
+
+			} elseif (array_key_exists($full_field, $meta_data->fieldMappings)) {
+				if (is_scalar($value)) {
+					$type  = Type::getType($meta_data->fieldMappings[$full_field]['type'] ?? 'string');
+
+					if (isset($this->filters[$type->getName()])) {
+						$value = $this->filters[$type->getName()]($value);
+					} else {
+						$value = $type->convertToPHPValue($value, $platform);
+					}
+
+				}
+
+				$this->fillProperty($entity, $field, $value);
+
+			} elseif (array_key_exists($field, $meta_data->associationMappings)) {
+				$this->fillAssociation($entity, $field, $value);
+
+			}  else {
+				$this->fillProperty($entity, $field, $value);
+
+			}
+		}
+
+		return $this;
 	}
 
 
 	/**
 	 *
 	 */
-	protected function fillAssociation(object $object, string $field, $value)
+	protected function fillAssociation(object $entity, string $field, $value)
 	{
-		$mapping = $this->metaData->associationMappings[$field];
+		$class     = get_class($entity);
+		$manager   = $this->registry->getManagerForClass($class);
+		$meta_data = $manager->getClassMetaData($class);
+		$mapping   = $meta_data->associationMappings[$field];
 
 		switch ($mapping['type']) {
 			case ClassMetadataInfo::ONE_TO_ONE:
 			case ClassMetadataInfo::MANY_TO_ONE:
-				$this->fillAssociationToOne($object, $field, $value);
+				$this->fillAssociationToOne($entity, $field, $value);
 				break;
 
 			case ClassMetadataInfo::ONE_TO_MANY:
 			case ClassMetadataInfo::MANY_TO_MANY:
-				$this->fillAssociationToMany($object, $field, $value);
+				$this->fillAssociationToMany($entity, $field, $value);
 				break;
 
 			default:
@@ -85,14 +134,14 @@ class Hydrator
 	/**
 	 *
 	 */
-	protected function fillAssociationToMany(object $object, string $field, $values): Hydrator
+	protected function fillAssociationToMany(object $entity, string $field, $values): Hydrator
 	{
 		settype($values, 'array');
 
 		$collection = new Collections\ArrayCollection();
 
 		foreach ($values as $value) {
-			$related_entity = $this->findAssociated($field, $value);
+			$related_entity = $this->findAssociated($entity, $field, $value);
 
 			if ($related_entity) {
 				if (is_array($value)) {
@@ -103,7 +152,7 @@ class Hydrator
 			}
 		}
 
-		$this->fillProperty($object, $field, $collection);
+		$this->fillProperty($entity, $field, $collection);
 
 		return $this;
 	}
@@ -112,15 +161,15 @@ class Hydrator
 	/**
 	 *
 	 */
-	protected function fillAssociationToOne(object $object, string $field, $value): Hydrator
+	protected function fillAssociationToOne(object $entity, string $field, $value): Hydrator
 	{
-		$related_entity = $this->findAssociated($field, $value);
+		$related_entity = $this->findAssociated($entity, $field, $value);
 
 		if (is_array($value)) {
 			$this->fill($related_entity, $value);
 		}
 
-		$this->fillProperty($object, $field, $related_entity);
+		$this->fillProperty($entity, $field, $related_entity);
 
 		return $this;
 	}
@@ -129,79 +178,32 @@ class Hydrator
 	/**
 	 *
 	 */
-	protected function fillProperties(object $object, array $data, bool $protect = TRUE, string $prefix = NULL): Hydrator
+	protected function fillProperty(object $entity, string $name, $value): Hydrator
 	{
-		foreach ($data as $field => $value) {
-			$full_field = $prefix
-				? $prefix . '.' . $field
-				: $field;
+		$property = $this->reflectProperty($entity, $name);
+		$existing = $property->getValue($entity);
 
-			if ($protect && array_intersect(['*', $full_field], $object::$_protect ?? ['*'])) {
-				continue;
+		if ($existing instanceof Collections\Collection) {
+			if ($value instanceof Collections\Collection) {
+				$value = $value->toArray();
+			} else {
+				settype($value, 'array');
 			}
 
-			if (array_key_exists($full_field, $this->metaData->embeddedClasses)) {
-				$property   = $this->reflectProperty($object, $field);
-				$embeddable = $property->getValue($object);
-
-				if (!$embeddable) {
-					$embeddable = new $this->metaData->embeddedClasses[$field]['class']();
-					$this->fillProperty($object, $field, $embeddable);
-				}
-
-				$this->fillProperties($embeddable, $value, $protect, $full_field);
-
-			} elseif (array_key_exists($full_field, $this->metaData->fieldMappings)) {
-				if (is_scalar($value)) {
-					$type  = Type::getType($this->metaData->fieldMappings[$full_field]['type'] ?? 'string');
-
-					if (isset($this->filters[$type->getName()])) {
-						$value = $this->filters[$type->getName()]($value);
-					} else {
-						$value = $type->convertToPHPValue($value, $this->platform);
-					}
-
-				}
-
-				$this->fillProperty($object, $field, $value);
-
-			} elseif (array_key_exists($field, $this->metaData->associationMappings)) {
-				$this->fillAssociation($object, $field, $value);
-
-			}  else {
-				$this->fillProperty($object, $field, $value);
-
-			}
-		}
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	protected function fillProperty(object $object, string $name, $value): Hydrator
-	{
-		$property = $this->reflectProperty($object, $name);
-
-		if ($value instanceof Collections\Collection) {
-			$collection = $property->getValue($name);
-
-			foreach ($collection as $i => $entity) {
-				if (!$value->contains($entity)) {
-					$collection->remove($i);
+			foreach ($existing as $i => $entity) {
+				if (!in_array($value($entity, TRUE))) {
+					$existing->remove($i);
 				}
 			}
 
 			foreach ($value as $entity) {
-				if (!$collection->contains($entity)) {
-					$collection->add($entity);
+				if (!$existing->contains($entity)) {
+					$existing->add($entity);
 				}
 			}
 
 		} else {
-			$property->setValue($object, $value);
+			$property->setValue($entity, $value);
 		}
 
 		return $this;
@@ -211,14 +213,17 @@ class Hydrator
 	/**
 	 *
 	 */
-	public function findAssociated($field, $id, $lock_mode = NULL, $lock_version = NULL)
+	public function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL)
 	{
 		if ($id === NULL) {
 			return NULL;
 		}
 
-		$mapping   = $this->metaData->getAssociationMapping($field);
-		$class     = $mapping['targetEntity'] ?? NULL;
+		$class     = get_class($entity);
+		$manager   = $this->registry->getManagerForClass($class);
+		$meta_data = $manager->getClassMetaData($class);
+		$mapping   = $meta_data->getAssociationMapping($field);
+		$target    = $mapping['targetEntity'] ?? NULL;
 
 		if (!$class) {
 			throw new RuntimeException(
@@ -227,22 +232,29 @@ class Hydrator
 			);
 		}
 
-		if (is_array($id)) {
-			$related_meta_data = $this->manager->getClassMetadata($class);
-			$field_names       = $related_meta_data->getIdentifierFieldNames();
-			$id                = array_intersect_key($id, array_flip($field_names));
+		$target_meta_data = $manager->getClassMetadata($target);
+		$field_names      = $target_meta_data->getIdentifierFieldNames();
+
+		if (is_array($id) || count($field_names) > 1) {
+			$id = array_filter(array_intersect_key($id, array_flip($field_names)));
+		} else {
+			$id = array_filter([$field_names[0] => $id]);
 		}
 
-		return $this->manager->find($class, $id, $lock_mode, $lock_version);
+		if (count($id) == count($field_names)) {
+			return $manager->find($target, $id, $lock_mode, $lock_version);
+		}
+
+		return new $target();
 	}
 
 
 	/**
 	 *
 	 */
-	protected function reflectProperty(object $object, $name): ReflectionProperty
+	protected function reflectProperty(object $entity, $name): ReflectionProperty
 	{
-		$class = get_class($object);
+		$class = get_class($entity);
 
 		if (!isset(static::$reflections[$class])) {
 			static::$reflections[$class]['@'] = new ReflectionClass($class);
