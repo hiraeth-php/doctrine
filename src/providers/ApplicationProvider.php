@@ -33,7 +33,7 @@ class ApplicationProvider implements Hiraeth\Provider
 
 		foreach ($app->getConfig('*', 'manager.proxy', $defaults) as $path => $proxy) {
 			$name      = basename($path, '.jin');
-			$proxy_ns  = $proxy['namespace'] ?? 'Proxies' . md5($name);
+			$proxy_ns  = $proxy['namespace'] ?? ucwords($name) . 'Proxies';
 			$proxy_dir = $proxy['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
 			);

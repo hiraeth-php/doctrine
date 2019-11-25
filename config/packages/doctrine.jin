@@ -33,7 +33,7 @@
 	;
 
 	providers = [
-
+		"Hiraeth\Doctrine\ApplicationProvider"
 	]
 
 [doctrine]
