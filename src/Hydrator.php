@@ -2,9 +2,9 @@
 
 namespace Hiraeth\Doctrine;
 
-use InvalidArgumentException;
 use Doctrine\DBAL\Types\Type;
-
+use InvalidArgumentException;
+use ReflectionException;
 use ReflectionProperty;
 use ReflectionClass;
 
@@ -52,44 +52,33 @@ class Hydrator
 		$this->platform = $this->manager->getConnection()->getDatabasePlatform();
 
 		$this->fillProperties($entity, $data, $protect);
-		$this->fillAssociations($entity, $data, $protect);
 	}
 
 
 	/**
 	 *
 	 */
-	protected function fillAssociations(object $object, array $data, $protect = TRUE): Hydrator
+	protected function fillAssociation(object $object, string $field, $value)
 	{
-		foreach ($data as $field => $value) {
-			if ($protect && array_intersect(['*', $field], $object::$_protect ?? ['*'])) {
-				continue;
-			}
+		$mapping = $this->metaData->associationMappings[$field];
 
-			if (array_key_exists($field, $this->metaData->associationMappings)) {
-				$mapping = $this->metaData->associationMappings[$field];
+		switch ($mapping['type']) {
+			case ClassMetadataInfo::ONE_TO_ONE:
+			case ClassMetadataInfo::MANY_TO_ONE:
+				$this->fillAssociationToOne($object, $field, $value);
+				break;
 
-				switch ($mapping['type']) {
-					case ClassMetadataInfo::ONE_TO_ONE:
-					case ClassMetadataInfo::MANY_TO_ONE:
-						$this->fillAssociationToOne($object, $field, $value);
-						break;
+			case ClassMetadataInfo::ONE_TO_MANY:
+			case ClassMetadataInfo::MANY_TO_MANY:
+				$this->fillAssociationToMany($object, $field, $value);
+				break;
 
-					case ClassMetadataInfo::ONE_TO_MANY:
-					case ClassMetadataInfo::MANY_TO_MANY:
-						$this->fillAssociationToMany($object, $field, $value);
-						break;
-
-					default:
-						throw new RuntimeException(sprintf(
-							'Unknown mapping type "%s"',
-							$mapping['type']
-						));
-				}
-			}
+			default:
+				throw new RuntimeException(sprintf(
+					'Unknown mapping type "%s"',
+					$mapping['type']
+				));
 		}
-
-		return $this;
 	}
 
 
@@ -150,7 +139,19 @@ class Hydrator
 			if ($protect && array_intersect(['*', $full_field], $object::$_protect ?? ['*'])) {
 				continue;
 			}
-			if (array_key_exists($full_field, $this->metaData->fieldMappings)) {
+
+			if (array_key_exists($full_field, $this->metaData->embeddedClasses)) {
+				$property   = $this->reflectProperty($object, $field);
+				$embeddable = $property->getValue($object);
+
+				if (!$embeddable) {
+					$embeddable = new $this->metaData->embeddedClasses[$field]['class']();
+					$this->fillProperty($object, $field, $embeddable);
+				}
+
+				$this->fillProperties($embeddable, $value, $protect, $full_field);
+
+			} elseif (array_key_exists($full_field, $this->metaData->fieldMappings)) {
 				if (is_scalar($value)) {
 					$type  = Type::getType($this->metaData->fieldMappings[$full_field]['type'] ?? 'string');
 
@@ -163,18 +164,13 @@ class Hydrator
 				}
 
 				$this->fillProperty($object, $field, $value);
-			}
 
-			if (array_key_exists($full_field, $this->metaData->embeddedClasses)) {
-				$property   = $this->reflectProperty($object, $field);
-				$embeddable = $property->getValue($object);
+			} elseif (array_key_exists($field, $this->metaData->associationMappings)) {
+				$this->fillAssociation($object, $field, $value);
 
-				if (!$embeddable) {
-					$embeddable = new $this->metaData->embeddedClasses[$field]['class']();
-					$this->fillProperty($object, $field, $embeddable);
-				}
+			}  else {
+				$this->fillProperty($object, $field, $value);
 
-				$this->fillProperties($embeddable, $value, $protect, $full_field);
 			}
 		}
 
@@ -253,8 +249,17 @@ class Hydrator
 		}
 
 		if (!isset(static::$reflections[$class][$name])) {
-			static::$reflections[$class][$name] = static::$reflections[$class]['@']->getProperty($name);
-			static::$reflections[$class][$name]->setAccessible(TRUE);
+			try {
+				static::$reflections[$class][$name] = static::$reflections[$class]['@']->getProperty($name);
+				static::$reflections[$class][$name]->setAccessible(TRUE);
+
+			} catch (ReflectionException $e) {
+				throw new InvalidArgumentException(sprintf(
+					'Cannot set property, class "%s" has no property named "%s"',
+					$class,
+					$name
+				));
+			}
 		}
 
 		return static::$reflections[$class][$name];
