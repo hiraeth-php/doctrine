@@ -2,10 +2,7 @@
 
 namespace Hiraeth\Doctrine;
 
-use RuntimeException;
 use InvalidArgumentException;
-use ReflectionProperty;
-use ReflectionClass;
 
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
@@ -13,7 +10,6 @@ use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\ORM\EntityManagerInterface as EntityManager;
 use Doctrine\Common\Collections;
-use Doctrine\DBAL\Types\Type;
 
 /**
  *
@@ -41,18 +37,14 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	protected static $reflections = [];
-
-
-	/**
-	 *
-	 */
-	public function __construct(ManagerRegistry $registry)
+	public function __construct(ManagerRegistry $registry, Hydrator $hydrator)
 	{
-		$manager   = $registry->getManagerForClass(static::$entity);
-		$meta_data = $manager->getClassMetaData(static::$entity);
+		$this->registry = $registry;
+		$this->hydrator = $hydrator;
+		$this->manager  = $this->registry->getManagerForClass(static::$entity);
+		$this->metaData = $this->manager->getClassMetaData(static::$entity);
 
-		parent::__construct($manager, $meta_data);
+		parent::__construct($this->manager, $this->metaData);
 	}
 
 
@@ -70,12 +62,12 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function create(array $data = array()): AbstractEntity
+	public function create(array $data = array(), bool $protect = TRUE): AbstractEntity
 	{
 
 		$entity = new static::$entity;
 
-		$this->update($entity, $data);
+		$this->update($entity, $data, $protect);
 
 		return $entity;
 	}
@@ -120,37 +112,6 @@ abstract class AbstractRepository extends EntityRepository
 	public function findAll(array $order_by = array())
 	{
 		return $this->findBy([], $order_by);
-	}
-
-
-
-	/**
-	 *
-	 */
-	public function findAssociated($field, $id, $lock_mode = NULL, $lock_version = NULL)
-	{
-		if ($id === NULL) {
-			return NULL;
-		}
-
-		$meta_data = $this->getClassMetadata();
-		$mapping   = $meta_data->getAssociationMapping($field);
-		$class     = $mapping['targetEntity'] ?? NULL;
-
-		if (!$class) {
-			throw new RuntimeException(
-				'Could not determine target entity for field "%s"',
-				$field
-			);
-		}
-
-		if (is_array($id)) {
-			$related_meta_data = $this->getEntityManager()->getClassMetadata($class);
-			$field_names       = $related_meta_data->getIdentifierFieldNames();
-			$id                = array_intersect_key($id, array_flip($field_names));
-		}
-
-		return $this->getEntityManager()->find($class, $id, $lock_mode, $lock_version);
 	}
 
 
@@ -263,10 +224,9 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function update(AbstractEntity $entity, array $data): AbstractRepository
+	public function update(AbstractEntity $entity, array $data, bool $protect = TRUE): AbstractRepository
 	{
-		$this->updateProperties($entity, $data);
-		$this->updateAssociations($entity, $data);
+		$this->hydrator->fill($entity, $data, $protect);
 
 		return $this;
 	}
@@ -318,181 +278,5 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $collection;
-	}
-
-
-	/**
-	 *
-	 */
-	protected function reflectProperty(object $object, $name): ReflectionProperty
-	{
-		$class = get_class($object);
-
-		if (!isset(static::$reflections[$class])) {
-			static::$reflections[$class]['@'] = new ReflectionClass($class);
-		}
-
-		if (!isset(static::$reflections[$class][$name])) {
-			static::$reflections[$class][$name] = static::$reflections[$class]['@']->getProperty($name);
-			static::$reflections[$class][$name]->setAccessible(TRUE);
-		}
-
-		return static::$reflections[$class][$name];
-	}
-
-
-
-	/**
-	 *
-	 */
-	protected function updateAssociations(object $object, array $data):  AbstractRepository
-	{
-		$meta_data = $this->getClassMetaData();
-
-		foreach ($data as $field => $value) {
-			if (array_intersect(['*', $field], $object::$_protect ?? ['*'])) {
-				continue;
-			}
-
-			if (array_key_exists($field, $meta_data->associationMappings)) {
-				$mapping = $meta_data->associationMappings[$field];
-
-				switch ($mapping['type']) {
-					case ClassMetadataInfo::ONE_TO_ONE:
-					case ClassMetadataInfo::MANY_TO_ONE:
-						$this->updateAssociationToOne($object, $field, $value);
-						break;
-
-					case ClassMetadataInfo::ONE_TO_MANY:
-					case ClassMetadataInfo::MANY_TO_MANY:
-						$this->updateAssociationToMany($object, $field, $value);
-						break;
-
-					default:
-						throw new RuntimeException(sprintf(
-							'Unknown mapping type "%s"',
-							$mapping['type']
-						));
-				}
-			}
-		}
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	protected function updateAssociationToMany(object $object, string $field, $values):  AbstractRepository
-	{
-		settype($values, 'array');
-
-		$collection = new Collections\ArrayCollection();
-
-		foreach ($values as $value) {
-			$related_entity = $this->findAssociated($field, $value);
-
-			if ($related_entity) {
-				if (is_array($value)) {
-					$this->update($related_entity, $value);
-				}
-
-				$collection->add($related_entity);
-			}
-		}
-
-		$this->updateProperty($object, $field, $collection);
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	protected function updateAssociationToOne(object $object, string $field, $value):  AbstractRepository
-	{
-		$related_entity = $this->findAssociated($field, $value);
-
-		if (is_array($value)) {
-			$this->update($related_entity, $value);
-		}
-
-		$this->updateProperty($object, $field, $related_entity);
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	protected function updateProperties(object $object, array $data, string $prefix = NULL): AbstractRepository
-	{
-		$meta_data = $this->getClassMetaData();
-		$platform  = $this->getEntityManager()->getConnection()->getDatabasePlatform();
-
-		foreach ($data as $field => $value) {
-			$full_field = $prefix ? $prefix . '.' . $field : $field;
-
-			if (array_intersect(['*', $full_field], $object::$_protect ?? ['*'])) {
-				continue;
-			}
-
-			if (array_key_exists($full_field, $meta_data->fieldMappings)) {
-				if (is_scalar($value)) {
-					$type  = Type::getType($meta_data->fieldMappings[$full_field]['type'] ?? 'string');
-					$value = $type->convertToPHPValue($value, $platform);
-
-				}
-
-				$this->updateProperty($object, $field, $value);
-			}
-
-			if (array_key_exists($full_field, $meta_data->embeddedClasses)) {
-				$property   = $this->reflectProperty($object, $field);
-				$embeddable = $property->getValue($object);
-
-				if (!$embeddable) {
-					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
-					$this->updateProperty($object, $field, $embeddable);
-				}
-
-				$this->updateProperties($embeddable, $value, $full_field);
-			}
-		}
-
-		return $this;
-	}
-
-
-	/**
-	 *
-	 */
-	protected function updateProperty(object $object, string $name, $value): AbstractRepository
-	{
-		$property = $this->reflectProperty($object, $name);
-
-		if ($value instanceof Collections\Collection) {
-			$collection = $property->getValue($name);
-
-			foreach ($collection as $i => $entity) {
-				if (!$value->contains($entity)) {
-					$collection->remove($i);
-				}
-			}
-
-			foreach ($value as $entity) {
-				if (!$collection->contains($entity)) {
-					$collection->add($entity);
-				}
-			}
-
-		} else {
-			$property->setValue($object, $value);
-		}
-
-		return $this;
 	}
 }

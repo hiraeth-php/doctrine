@@ -220,7 +220,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			}
 
 			$driver    = $config->newDefaultAnnotationDriver($paths);
-			$proxy_ns  = $options['proxy']['namespace'] ?? 'Proxies' . md5($name);
+			$proxy_ns  = $options['proxy']['namespace'] ?? (ucwords($name) . 'Proxies');
 			$proxy_dir = $options['proxy']['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
 			);
