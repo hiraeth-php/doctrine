@@ -217,7 +217,7 @@ class Hydrator
 	 */
 	public function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL)
 	{
-		if ($id === NULL) {
+		if (empty($id) && !is_array($id)) {
 			return NULL;
 		}
 
