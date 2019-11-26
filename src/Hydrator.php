@@ -47,7 +47,7 @@ class Hydrator
 	/**
 	 *
 	 */
-	public function fill($entity, array $data, bool $protect = TRUE, string $prefix = NULL): Hydrator
+	public function fill($entity, array $data, bool $protect = TRUE): Hydrator
 	{
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
@@ -55,15 +55,11 @@ class Hydrator
 		$meta_data = $manager->getClassMetaData($class);
 
 		foreach ($data as $field => $value) {
-			$full_field = $prefix
-				? $prefix . '.' . $field
-				: $field;
-
-			if ($protect && array_intersect(['*', $full_field], $entity::$_protect ?? ['*'])) {
+			if ($protect && array_intersect(['*', $field], $entity::$_protect ?? ['*'])) {
 				continue;
 			}
 
-			if (array_key_exists($full_field, $meta_data->embeddedClasses)) {
+			if (array_key_exists($field, $meta_data->embeddedClasses)) {
 				$property   = $this->reflectProperty($entity, $field);
 				$embeddable = $property->getValue($entity);
 
@@ -72,11 +68,15 @@ class Hydrator
 					$this->fillProperty($entity, $field, $embeddable);
 				}
 
-				$this->fillProperties($embeddable, $value, $protect, $full_field);
+				foreach ($value as $embedded_field => $embedded_value) {
+					$embed = [$field . '.' . $embedded_field => $embedded_value];
 
-			} elseif (array_key_exists($full_field, $meta_data->fieldMappings)) {
+					$this->fill($entity, $embed, $protect);
+				}
+
+			} elseif (array_key_exists($field, $meta_data->fieldMappings)) {
 				if (is_scalar($value)) {
-					$type  = Type::getType($meta_data->fieldMappings[$full_field]['type'] ?? 'string');
+					$type  = Type::getType($meta_data->fieldMappings[$field]['type'] ?? 'string');
 
 					if (isset($this->filters[$type->getName()])) {
 						$value = $this->filters[$type->getName()]($value);
@@ -180,30 +180,32 @@ class Hydrator
 	 */
 	protected function fillProperty(object $entity, string $name, $value): Hydrator
 	{
-		$property = $this->reflectProperty($entity, $name);
-		$existing = $property->getValue($entity);
+		if (property_exists($entity, $name)) {
+			$property = $this->reflectProperty($entity, $name);
+			$existing = $property->getValue($entity);
 
-		if ($existing instanceof Collections\Collection) {
-			if ($value instanceof Collections\Collection) {
-				$value = $value->toArray();
+			if ($existing instanceof Collections\Collection) {
+				if ($value instanceof Collections\Collection) {
+					$value = $value->toArray();
+				} else {
+					settype($value, 'array');
+				}
+
+				foreach ($existing as $i => $entity) {
+					if (!in_array($value($entity, TRUE))) {
+						$existing->remove($i);
+					}
+				}
+
+				foreach ($value as $entity) {
+					if (!$existing->contains($entity)) {
+						$existing->add($entity);
+					}
+				}
+
 			} else {
-				settype($value, 'array');
+				$property->setValue($entity, $value);
 			}
-
-			foreach ($existing as $i => $entity) {
-				if (!in_array($value($entity, TRUE))) {
-					$existing->remove($i);
-				}
-			}
-
-			foreach ($value as $entity) {
-				if (!$existing->contains($entity)) {
-					$existing->add($entity);
-				}
-			}
-
-		} else {
-			$property->setValue($entity, $value);
 		}
 
 		return $this;
