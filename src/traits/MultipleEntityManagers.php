@@ -41,7 +41,10 @@ trait MultipleEntityManagers
 			$this->registry->getDefaultManagerName()
 		);
 
-		return parent::configure();
+		parent::configure();
+
+		$this->setName(static::$defaultName);
+		$this->setAliases([]);
 	}
 
 
