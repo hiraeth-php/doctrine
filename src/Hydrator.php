@@ -60,8 +60,7 @@ class Hydrator
 			}
 
 			if (array_key_exists($field, $meta_data->embeddedClasses)) {
-				$property   = $this->reflectProperty($entity, $field);
-				$embeddable = $property->getValue($entity);
+				$embeddable = $this->reflectProperty($entity, $field)->getValue($entity);
 
 				if (!$embeddable) {
 					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
@@ -83,7 +82,6 @@ class Hydrator
 					} else {
 						$value = $type->convertToPHPValue($value, $platform);
 					}
-
 				}
 
 				$this->fillProperty($entity, $field, $value);
@@ -180,6 +178,17 @@ class Hydrator
 	 */
 	protected function fillProperty(object $entity, string $name, $value): Hydrator
 	{
+		if (strpos($name, '.')) {
+			$parts = explode('.', $name);
+			$name  = array_pop($parts);
+
+			foreach ($parts as $part) {
+				if (property_exists($entity, $part)) {
+					$entity = $this->reflectProperty($entity, $part)->getValue($entity);
+				}
+			}
+		}
+
 		if (property_exists($entity, $name)) {
 			$property = $this->reflectProperty($entity, $name);
 			$existing = $property->getValue($entity);
