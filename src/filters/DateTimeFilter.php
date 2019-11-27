@@ -11,9 +11,7 @@ class DateTimeFilter
 		if ($value) {
 			try {
 				return new DateTime($value);
-			} catch (\Exception $e) {
-
-			}
+			} catch (\Exception $e) {}
 		}
 
 		return NULL;

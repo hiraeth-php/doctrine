@@ -45,6 +45,13 @@
 	[&.hydrator]
 
 		filters = {
+			"string"   : "Hiraeth\Doctrine\StringFilter",
+			"text":    : "Hiraeth\Doctrine\StringFilter",
+			"float":   : "Hiraeth\Doctrine\NumericFilter",
+			"decimal"  : "Hiraeth\Doctrine\NumericFilter",
+			"integer"  : "Hiraeth\Doctrine\NumericFilter",
+			"smallint" : "Hiraeth\Doctrine\NumericFilter",
+			"bigint"   : "Hiraeth\Doctrine\StringFilter",
 			"date"     : "Hiraeth\Doctrine\DateTimeFilter",
 			"time"     : "Hiraeth\Doctrine\DateTimeFilter",
 			"timestamp": "Hiraeth\Doctrine\DateTimeFilter",
