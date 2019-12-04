@@ -196,11 +196,12 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
 
-			if ($this->app->isDebugging()) {
+			if ($this->app->getEnvironment('CACHING', FALSE) {
 				$cache = $this->app->get(Cache\ArrayCache::class);
 
 				$config->setAutoGenerateProxyClasses(TRUE);
 				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_EVAL);
+
 			} else {
 				if ($options['cache']) {
 					$pool = $this->pools->get($options['cache']);

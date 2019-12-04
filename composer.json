@@ -15,9 +15,8 @@
         "hiraeth/app": "^2.0",
         "hiraeth/dbal": "^1.0",
         "doctrine/orm": "^2.6",
-        "hiraeth/caching": "^1.0",
-        "cache/psr-6-doctrine-bridge": "^3.0",
-        "thadafinser/psr6-null-cache": "dev-master as 1.0"
+        "hiraeth/caching-imp": "^1.0",
+        "cache/psr-6-doctrine-bridge": "^3.0"
     },
     "autoload": {
         "classmap": ["src/"]
@@ -27,7 +26,7 @@
         "opus": {
             "hiraeth/app": {
                 "config": "",
-		"local": ""
+                "local": ""
             }
         }
     },
