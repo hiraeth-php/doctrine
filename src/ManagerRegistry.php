@@ -197,12 +197,6 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
 
 			if ($this->app->getEnvironment('CACHING', FALSE)) {
-				$cache = $this->app->get(Cache\ArrayCache::class);
-
-				$config->setAutoGenerateProxyClasses(TRUE);
-				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_EVAL);
-
-			} else {
 				if ($options['cache']) {
 					$pool = $this->pools->get($options['cache']);
 				} else {
@@ -210,6 +204,13 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				}
 
 				$cache = new DoctrineCacheBridge($pool);
+
+			} else {
+				$cache = $this->app->get(Cache\ArrayCache::class);
+
+				$config->setAutoGenerateProxyClasses(TRUE);
+				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_EVAL);
+
 			}
 
 			foreach ($options['paths'] as $path) {
