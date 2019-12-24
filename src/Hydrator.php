@@ -6,6 +6,7 @@ use Doctrine\DBAL\Types\Type;
 use Doctrine\Common\Collections;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 
+use RuntimeException;
 use InvalidArgumentException;
 use ReflectionException;
 use ReflectionProperty;
@@ -87,7 +88,7 @@ class Hydrator
 				$this->fillProperty($entity, $field, $value);
 
 			} elseif (array_key_exists($field, $meta_data->associationMappings)) {
-				$this->fillAssociation($entity, $field, $value);
+				$this->fillAssociation($entity, $field, $value, $protect);
 
 			}  else {
 				$this->fillProperty($entity, $field, $value);
@@ -102,7 +103,7 @@ class Hydrator
 	/**
 	 *
 	 */
-	protected function fillAssociation(object $entity, string $field, $value)
+	protected function fillAssociation(object $entity, string $field, $value, bool $protect = TRUE)
 	{
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
@@ -112,12 +113,12 @@ class Hydrator
 		switch ($mapping['type']) {
 			case ClassMetadataInfo::ONE_TO_ONE:
 			case ClassMetadataInfo::MANY_TO_ONE:
-				$this->fillAssociationToOne($entity, $field, $value);
+				$this->fillAssociationToOne($entity, $field, $value, $protect);
 				break;
 
 			case ClassMetadataInfo::ONE_TO_MANY:
 			case ClassMetadataInfo::MANY_TO_MANY:
-				$this->fillAssociationToMany($entity, $field, $value);
+				$this->fillAssociationToMany($entity, $field, $value, $protect);
 				break;
 
 			default:
@@ -132,7 +133,7 @@ class Hydrator
 	/**
 	 *
 	 */
-	protected function fillAssociationToMany(object $entity, string $field, $values): Hydrator
+	protected function fillAssociationToMany(object $entity, string $field, $values, bool $protect = TRUE): Hydrator
 	{
 		settype($values, 'array');
 
@@ -143,7 +144,7 @@ class Hydrator
 
 			if ($related_entity) {
 				if (is_array($value)) {
-					$this->fill($related_entity, $value);
+					$this->fill($related_entity, $value, $protect);
 				}
 
 				$collection->add($related_entity);
@@ -159,12 +160,12 @@ class Hydrator
 	/**
 	 *
 	 */
-	protected function fillAssociationToOne(object $entity, string $field, $value): Hydrator
+	protected function fillAssociationToOne(object $entity, string $field, $value, bool $protect = TRUE): Hydrator
 	{
 		$related_entity = $this->findAssociated($entity, $field, $value);
 
 		if (is_array($value)) {
-			$this->fill($related_entity, $value);
+			$this->fill($related_entity, $value, $protect);
 		}
 
 		$this->fillProperty($entity, $field, $related_entity);
@@ -190,6 +191,7 @@ class Hydrator
 		}
 
 		if (property_exists($entity, $name)) {
+			$method   = 'set' . ucwords($name);
 			$property = $this->reflectProperty($entity, $name);
 			$existing = $property->getValue($entity);
 
@@ -201,7 +203,7 @@ class Hydrator
 				}
 
 				foreach ($existing as $i => $entity) {
-					if (!in_array($value($entity, TRUE))) {
+					if (!in_array($entity, $value, TRUE)) {
 						$existing->remove($i);
 					}
 				}
@@ -212,8 +214,12 @@ class Hydrator
 					}
 				}
 
-			} else {
+			} elseif (!is_callable([$entity, $method])) {
 				$property->setValue($entity, $value);
+
+			} else {
+				$entity->$method($value);
+
 			}
 		}
 
