@@ -75,7 +75,7 @@ class Hydrator
 				}
 
 			} elseif (array_key_exists($field, $meta_data->fieldMappings)) {
-				if (is_scalar($value)) {
+				if (is_scalar($value) || is_object($value)) {
 					$type  = Type::getType($meta_data->fieldMappings[$field]['type'] ?? 'string');
 
 					if (isset($this->filters[$type->getName()])) {
