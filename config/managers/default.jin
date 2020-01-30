@@ -21,14 +21,6 @@
 	]
 
 	;
-	; A list of event subscribers
-	;
-
-	subscribers = [
-
-	]
-
-	;
 	;
 	;
 

@@ -187,11 +187,18 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$paths      = array();
 			$config     = new ORM\Configuration();
 			$collection = $this->managerCollections[$name];
-			$options    = $this->app->getConfig($collection, 'manager', []) + [
-				'cache'       => NULL,
-				'connection'  => 'default',
-				'subscribers' => [],
-				'paths'       => []
+
+			$subscribers = $this->app->getConfig('*', 'subscriber', [
+				'class'    => NULL,
+				'disabled' => FALSE,
+				'priority' => 50,
+				'manager'  => []
+			]);
+
+			$options = $this->app->getConfig($collection, 'manager', []) + [
+				'cache'      => NULL,
+				'connection' => 'default',
+				'paths'      => []
 			];
 
 			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
@@ -251,9 +258,23 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			// the subscriber has a repository or entity manager re-injected
 			//
 
-			foreach ($options['subscribers'] as $subscriber) {
+			uasort($subscribers, function($a, $b) {
+				return $a['priority'] - $b['priority'];
+			});
+
+			foreach ($subscribers as $collection => $config) {
+				settype($config['manager'], 'array');
+
+				if (!empty($config['disabled'])) {
+					continue;
+				}
+
+				if (!in_array($name, $config['manager'])) {
+					continue;
+				}
+
 				$this->managers[$name]->getEventManager()->addEventSubscriber(
-					$this->app->get($subscriber)
+					$this->app->get($config['class'])
 				);
 			}
 		}

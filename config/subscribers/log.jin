@@ -1,0 +1,25 @@
+[subscriber]
+
+	;
+	; Whether or not the subscriber is disabled
+	;
+
+	disabled = false
+
+	;
+	; The priority for the subscriber
+	;
+
+	priority = 50
+
+	;
+	; The subscriber class
+	;
+
+	class = Hiraeth\Doctrine\LogSubscriber
+
+	;
+	; Managers
+	;
+
+	manager = default
