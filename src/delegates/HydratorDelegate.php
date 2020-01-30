@@ -26,7 +26,7 @@ class HydratorDelegate implements Hiraeth\Delegate
 		$instance = new Hydrator($app->get(ManagerRegistry::class));
 		$filters  = $app->getConfig('*', 'doctrine.hydrator.filters', []);
 
-		foreach (array_merge(...array_values($filters)) as $type => $filter) {
+		foreach (array_merge(...array_values(array_reverse($filters))) as $type => $filter) {
 			$instance->addFilter($type, $app->get($filter));
 		}
 
