@@ -232,7 +232,7 @@ class Hydrator
 	 */
 	public function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL)
 	{
-		if (empty($id) && !is_array($id)) {
+		if (!is_array($id) && empty($id)) {
 			return NULL;
 		}
 
@@ -249,6 +249,7 @@ class Hydrator
 			);
 		}
 
+		$existing_record  = $this->reflectProperty($entity, $field)->getValue($entity);
 		$target_meta_data = $manager->getClassMetadata($target);
 		$field_names      = $target_meta_data->getIdentifierFieldNames();
 
@@ -260,9 +261,14 @@ class Hydrator
 
 		if (count($id) == count($field_names)) {
 			return $manager->find($target, $id, $lock_mode, $lock_version);
-		}
 
-		return new $target();
+		} elseif ($existing_record) {
+			return $existing_record;
+
+		} else {
+			return new $target();
+
+		}
 	}
 
 
