@@ -153,9 +153,11 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function query($build_callback, &$nonlimited_count = NULL): Collections\Collection
 	{
-		$builder = $this->build($build_callback);
+		$builder      = $this->build($build_callback);
+		$order_parts  = $builder->getDQLPart('orderBy');
+		$select_parts = $builder->getDQLPart('select');
 
-		if (empty($builder->getDQLPart('orderBy'))) {
+		if (empty($order_parts) && in_array('this', $select_parts[0]->getParts())) {
 			foreach (static::$order as $property => $direction) {
 				$builder->addOrderBy('this.' . $property, $direction);
 			}
