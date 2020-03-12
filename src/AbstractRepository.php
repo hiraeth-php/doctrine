@@ -180,7 +180,7 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		$builder = $this->build($build_callback);
 
-		$builder->select('count(this)');
+		$builder->select('count(DISTINCT this)');
 		$builder->resetDQLPart('orderBy');
 
 		if ($non_limited) {
@@ -240,7 +240,7 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		$builder = $this->_em
 			-> createQueryBuilder()
-			-> select('this')
+			-> select('DISTINCT this')
 			-> from(static::$entity, 'this')
 		;
 
