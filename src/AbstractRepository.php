@@ -157,7 +157,7 @@ abstract class AbstractRepository extends EntityRepository
 		$order_parts  = $builder->getDQLPart('orderBy');
 		$select_parts = $builder->getDQLPart('select');
 
-		if (empty($order_parts) && in_array('this', $select_parts[0]->getParts())) {
+		if (empty($order_parts) && in_array('DISTINCT this', $select_parts[0]->getParts())) {
 			foreach (static::$order as $property => $direction) {
 				$builder->addOrderBy('this.' . $property, $direction);
 			}
