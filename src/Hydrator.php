@@ -226,7 +226,7 @@ class Hydrator
 			// link if it's a collection, or set to null if it's a single entity.
 			//
 
-			if ($curent_value) {
+			if ($current_value) {
 				$link_value = $this
 					->reflectProperty($current_value, $link)
 					->getValue($current_value);
