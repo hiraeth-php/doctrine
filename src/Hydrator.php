@@ -285,9 +285,37 @@ class Hydrator
 		}
 
 		if (property_exists($entity, $name)) {
-			$method = 'set' . ucwords($name);
+			$method   = 'set' . ucwords($name);
+			$property = $this->reflectProperty($entity, $name);
+			$existing = $property->getValue($entity);
 
-			if (!is_callable([$entity, $method])) {
+			//
+			// Note: this should only be employed for basic collection mapping.  Associations
+			// are more appropriately handled by the fillAssociation* methods.  This is, however,
+			// important for if collections are used in place of arrays -- particularly for
+			// serialization and deserialization.
+			//
+
+			if ($existing instanceof Collections\Collection) {
+				if ($value instanceof Collections\Collection) {
+					$value = $value->toArray();
+				} else {
+					settype($value, 'array');
+				}
+
+				foreach ($existing as $i => $entity) {
+					if (!in_array($entity, $value, TRUE)) {
+						$existing->remove($i);
+					}
+				}
+
+				foreach ($value as $entity) {
+					if (!$existing->contains($entity)) {
+						$existing->add($entity);
+					}
+				}
+
+			} elseif (!is_callable([$entity, $method])) {
 				$this->reflectProperty($entity, $name)->setValue($entity, $value);
 
 			} else {
