@@ -147,6 +147,14 @@ class Hydrator
 		$cur_collection = $this->reflectProperty($entity, $field)->getValue($entity);
 		$new_collection = new Collections\ArrayCollection();
 
+		if (!$cur_collection instanceof Collections\Collection) {
+			throw new RuntimeException(sprintf(
+				'On "%s" the field "%s" is not a collection, must be initialized as a collection',
+				get_class($entity),
+				$field
+			));
+		}
+
 		foreach ($values as $value) {
 			$related_entity = $this->findAssociated($entity, $field, $value);
 
