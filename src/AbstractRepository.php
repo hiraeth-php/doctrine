@@ -108,8 +108,12 @@ abstract class AbstractRepository extends EntityRepository
 	 * {@inheritDoc}
 	 * @param array $order_by The order by clause to add
 	 */
-	public function findAll(array $order_by = array())
+	public function findAll(?array $order_by = [])
 	{
+		if (!is_null($order_by)) {
+			$order_by = array_merge($order_by, static::$order);
+		}
+
 		return $this->findBy([], $order_by);
 	}
 
@@ -117,10 +121,13 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 */
-	public function findBy(array $criteria, array $order_by = null, $limit = null, $offset = null)
+	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null)
 	{
-		$order_by  = array_merge((array) $order_by, static::$order);
 		$persister = $this->_em->getUnitOfWork()->getEntityPersister($this->_entityName);
+
+		if (!is_null($order_by)) {
+			$order_by = array_merge($order_by, static::$order);
+		}
 
 		foreach ($criteria as $key => $value) {
 
@@ -140,9 +147,11 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 */
-	public function findOneBy(array $criteria, array $order_by = null)
+	public function findOneBy(array $criteria, ?array $order_by = [])
 	{
-		$order_by = array_merge((array) $order_by, static::$order);
+		if (!is_null($order_by)) {
+			$order_by = array_merge($order_by, static::$order);
+		}
 
 		return parent::findOneBy($criteria, $order_by);
 	}
@@ -210,12 +219,19 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function store($entity, $flush = FALSE): AbstractRepository
+	public function store($entity, $flush = FALSE, $recompute = FALSE): AbstractRepository
 	{
 		$this->_em->persist($entity);
 
 		if ($flush) {
 			$this->_em->flush($entity);
+		}
+
+		if ($recompute) {
+			$this->_em->getUnitOfWork()->computeChangeSet(
+				$this->_em->getClassMetadata(get_class($entity)),
+				$entity
+			);
 		}
 
 		return $this;
