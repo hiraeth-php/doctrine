@@ -61,7 +61,7 @@ class Hydrator
 			}
 
 			if (array_key_exists($field, $meta_data->embeddedClasses)) {
-				$embeddable = $this->reflectProperty($entity, $field)->getValue($entity);
+				$embeddable = $this->getProperty($entity, $field);
 
 				if (!$embeddable) {
 					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
@@ -382,6 +382,30 @@ class Hydrator
 
 	/**
 	 * Create a property reflection and cache it.
+	 * Find the property of a field.
+	 */
+	public function getProperty($entity, $field)
+	{
+		$prop = NULL;
+
+		if (strpos($field, '.')) {
+			$parts = explode('.', $field);
+
+			foreach ($parts as $part) {
+				if (!property_exists($entity, $part)) {
+					$prop = $this->reflectProperty($entity, $part)->getValue($entity);
+				}
+			}
+		} else {
+			$prop = $this->reflectProperty($entity, $field)->getValue($entity);
+		}
+
+		return $prop;
+	}
+
+
+	/**
+	 *
 	 */
 	protected function reflectProperty(object $entity, $name): ReflectionProperty
 	{
