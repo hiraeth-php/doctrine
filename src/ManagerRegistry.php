@@ -216,7 +216,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$cache = $this->app->get(Cache\ArrayCache::class);
 
 				$config->setAutoGenerateProxyClasses(TRUE);
-				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_EVAL);
+				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_ALWAYS);
 
 			}
 
