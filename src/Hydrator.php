@@ -267,26 +267,26 @@ class Hydrator
 
 
 	/**
-     * Find the property of a field.
-     */
-    public function getProperty($entity, $field)
-    {
-        $prop = NULL;
+	 * Find the property of a field.
+	 */
+	public function getProperty($entity, $field)
+	{
+		$prop = NULL;
 
-        if (strpos($field, '.')) {
-            $parts = explode('.', $field);
+		if (strpos($field, '.')) {
+			$parts = explode('.', $field);
 			array_pop($parts);
 
-            foreach ($parts as $part) {
-                if (!property_exists($entity, $part)) {
-                    $prop = $this->reflectProperty($entity, $part)->getValue($entity);
-                }
-            }
-        } else {
-            $prop = $this->reflectProperty($entity, $field)->getValue($entity);
-        }
+			foreach ($parts as $part) {
+				if (!property_exists($entity, $part)) {
+					$prop = $this->reflectProperty($entity, $part)->getValue($entity);
+				}
+			}
+		} else {
+			$prop = $this->reflectProperty($entity, $field)->getValue($entity);
+		}
 
-        return $prop;
+		return $prop;
 	}
 
 
