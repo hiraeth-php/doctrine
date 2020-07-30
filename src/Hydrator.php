@@ -381,7 +381,6 @@ class Hydrator
 
 
 	/**
-	 * Create a property reflection and cache it.
 	 * Find the property of a field.
 	 */
 	public function getProperty($entity, $field)
@@ -390,6 +389,7 @@ class Hydrator
 
 		if (strpos($field, '.')) {
 			$parts = explode('.', $field);
+			array_pop($parts);
 
 			foreach ($parts as $part) {
 				if (!property_exists($entity, $part)) {
