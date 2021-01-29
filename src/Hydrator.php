@@ -90,7 +90,7 @@ class Hydrator
 			} elseif (array_key_exists($field, $meta_data->associationMappings)) {
 				$this->fillAssociation($entity, $field, $value, $protect);
 
-			}  else {
+			} else {
 				$this->fillProperty($entity, $field, $value);
 
 			}
@@ -341,10 +341,6 @@ class Hydrator
 	 */
 	public function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL): ?object
 	{
-		if (!is_array($id) && empty($id)) {
-			return NULL;
-		}
-
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
 		$meta_data = $manager->getClassMetaData($class);
@@ -352,31 +348,75 @@ class Hydrator
 		$target    = $mapping['targetEntity'] ?? NULL;
 
 		if (!$class) {
-			throw new RuntimeException(
+			throw new RuntimeException(sprintf(
 				'Could not determine target entity for field "%s"',
 				$field
-			);
+			));
 		}
 
-		$existing_record  = $this->reflectProperty($entity, $field)->getValue($entity);
+		//
+		// Short circuit logic.  If we're not an array and we're an empty vaulue or existing
+		// instance, we can go home early.
+		//
+
+		if (!is_array($id)) {
+			if (empty($id)) {
+				return NULL;
+			}
+
+			if (is_a($id, $target)) {
+				return $id;
+			}
+		}
+
 		$target_meta_data = $manager->getClassMetadata($target);
-		$field_names      = $target_meta_data->getIdentifierFieldNames();
+		$target_id_fields = $target_meta_data->getIdentifierFieldNames();
 
-		if (is_array($id) || count($field_names) > 1) {
-			$id = array_filter(array_intersect_key($id, array_flip($field_names)));
+		//
+		// If we have a compound id/primary key, we're going to convert our id to just
+		// just those required to identify the record and filter out NULl values.  This will either
+		// leave us with enough data to identify the record or an $id that is smaller than the
+		// requisite target id fields.  If there is only a singular target id field we're just
+		// going to normalize on that name.
+		//
+
+		if (count($target_id_fields) == 1) {
+			if (is_scalar($id)) {
+				$id = array_filter([$target_id_fields[0] => $id]);
+			} else {
+				$id = array_filter($id);
+			}
 		} else {
-			$id = array_filter([$field_names[0] => $id]);
+			if (!is_scalar($id)) {
+				$id = array_filter(array_intersect_key($id, array_flip($target_id_fields)));
+			} else {
+				throw new RuntimeException(sprintf(
+					'Invalid associative identity passed, expected compound id, got scalar "%s"',
+					print_r($id, TRUE)
+				));
+			}
 		}
 
-		if (count($id) == count($field_names)) {
-			return $manager->find($target, $id, $lock_mode, $lock_version);
+		//
+		// If our ID has sufficient information we'll try to look up the associated record from
+		// the DB in the event it's not associated yet.  Otherwise, we'll fall back to trying
+		// to get it from the entity.
+		//
 
-		} elseif (is_a($existing_record, $target)) {
-			return $existing_record;
-
+		if (count($id) == count($target_id_fields)) {
+			$existing_record = $manager->find($target, $id, $lock_mode, $lock_version);
 		} else {
-			return new $target();
+			$existing_record = $this->reflectProperty($entity, $field)->getValue($entity);
 		}
+
+		//
+		// Lastly, if we have an existing record, we'll return that, if not, we'll return a totally
+		// new one so that it can be populated.
+		//
+
+		return is_a($existing_record, $target)
+			? $existing_record
+			: new $target();
 	}
 
 
