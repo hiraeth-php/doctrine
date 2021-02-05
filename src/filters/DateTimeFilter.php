@@ -13,7 +13,7 @@ class DateTimeFilter
 			// Allow for accepting year-only strings
 			//
 
-			if (is_string($value) && is_numeric($value) && strlen($value) == 2) {
+			if (is_string($value) && is_numeric($value) && in_array(strlen($value), [2, 4])) {
 				$value = sprintf('01/01/%s', $value);
 			}
 

@@ -380,21 +380,17 @@ class Hydrator
 		// going to normalize on that name.
 		//
 
-		if (count($target_id_fields) == 1) {
-			if (is_scalar($id)) {
-				$id = array_filter([$target_id_fields[0] => $id]);
-			} else {
-				$id = array_filter($id);
-			}
+		if (!is_scalar($id)) {
+			$id = array_filter(array_intersect_key($id, array_flip($target_id_fields)));
+
+		} elseif (count($target_id_fields) == 1) {
+			$id = array_filter([$target_id_fields[0] => $id]);
+
 		} else {
-			if (!is_scalar($id)) {
-				$id = array_filter(array_intersect_key($id, array_flip($target_id_fields)));
-			} else {
-				throw new RuntimeException(sprintf(
-					'Invalid associative identity passed, expected compound id, got scalar "%s"',
-					print_r($id, TRUE)
-				));
-			}
+			throw new RuntimeException(sprintf(
+				'Invalid associative identity passed, expected compound id, got scalar "%s"',
+				print_r($id, TRUE)
+			));
 		}
 
 		//
