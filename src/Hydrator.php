@@ -5,7 +5,7 @@ namespace Hiraeth\Doctrine;
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Common\Collections;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
-
+use Doctrine\Persistence\Proxy;
 use RuntimeException;
 use InvalidArgumentException;
 use ReflectionException;
@@ -54,6 +54,10 @@ class Hydrator
 		$manager   = $this->registry->getManagerForClass($class);
 		$platform  = $manager->getConnection()->getDatabasePlatform();
 		$meta_data = $manager->getClassMetaData($class);
+
+		if ($entity instanceof Proxy && !$entity->__isInitialized()) {
+			$entity->__load();
+		}
 
 		foreach ($data as $field => $value) {
 			if ($protect && array_intersect(['*', $field], $entity::$_protect ?? ['*'])) {
