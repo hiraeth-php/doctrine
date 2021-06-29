@@ -121,14 +121,11 @@ class Replicator
 					]);
 
 					if ($related_entity) {
-						$manager->persist(
-							$this->clone(
-								$related_entity,
-								[$mapping['fieldName'] => $entity]
-							)
+						$this->clone(
+							$related_entity,
+							[$mapping['fieldName'] => $entity]
 						);
 					}
-
 				}
 
 				if ($mapping['type'] == ClassMetadataInfo::MANY_TO_ONE) {
@@ -137,16 +134,16 @@ class Replicator
 					]);
 
 					foreach ($collection as $related_entity) {
-						$manager->persist(
-							$this->clone(
-								$related_entity,
-								[$mapping['fieldName'] => $entity]
-							)
+						$this->clone(
+							$related_entity,
+							[$mapping['fieldName'] => $entity]
 						);
 					}
 				}
 			}
 		}
+
+		$manager->persist($entity);
 
 		return $entity;
 	}
