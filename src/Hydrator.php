@@ -69,7 +69,7 @@ class Hydrator
 
 				if (!$embeddable) {
 					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
-					$this->fillProperty($entity, $field, $embeddable);
+					$this->setProperty($entity, $field, $embeddable);
 				}
 
 				foreach ($value as $embedded_field => $embedded_value) {
@@ -89,14 +89,98 @@ class Hydrator
 					}
 				}
 
-				$this->fillProperty($entity, $field, $value);
+				$this->setProperty($entity, $field, $value);
 
 			} elseif (array_key_exists($field, $meta_data->associationMappings)) {
 				$this->fillAssociation($entity, $field, $value, $protect);
 
 			} else {
-				$this->fillProperty($entity, $field, $value);
+				$this->setProperty($entity, $field, $value);
 
+			}
+		}
+
+		return $this;
+	}
+
+
+	/**
+	 * Find the property of a field.
+	 */
+	public function getProperty($entity, $field)
+	{
+		$prop = NULL;
+
+		if (strpos($field, '.')) {
+			$parts = explode('.', $field);
+			array_pop($parts);
+
+			foreach ($parts as $part) {
+				if (!property_exists($entity, $part)) {
+					$prop = $this->reflectProperty($entity, $part)->getValue($entity);
+				}
+			}
+		} else {
+			$prop = $this->reflectProperty($entity, $field)->getValue($entity);
+		}
+
+		return $prop;
+	}
+
+
+	/**
+	 * Set a property on a given entity using reflection if needed.
+	 *
+	 * If the property name is separated by dots, the entity will be resolved via reflection first
+	 * and the final property will be set on the entity traversed to.
+	 */
+	public function setProperty(object $entity, string $name, $value): Hydrator
+	{
+		if (strpos($name, '.')) {
+			$parts = explode('.', $name);
+			$name  = array_pop($parts);
+
+			foreach ($parts as $part) {
+				if (property_exists($entity, $part)) {
+					$entity = $this->reflectProperty($entity, $part)->getValue($entity);
+				}
+			}
+		}
+
+		if (property_exists($entity, $name)) {
+			$method   = 'set' . ucwords($name);
+			$property = $this->reflectProperty($entity, $name);
+			$existing = $property->getValue($entity);
+
+			//
+			// Note: this should only be employed for basic collection mapping.  Associations
+			// are more appropriately handled by the fillAssociation* methods.  This is, however,
+			// important for if collections are used in place of arrays -- particularly for
+			// serialization and deserialization.
+			//
+
+			if ($existing instanceof Collections\Collection) {
+				if ($value instanceof Collections\Collection) {
+					$value = $value->toArray();
+				} else {
+					settype($value, 'array');
+				}
+
+				foreach ($existing as $i => $entity) {
+					if (!in_array($entity, $value, TRUE)) {
+						$existing->remove($i);
+					}
+				}
+
+				foreach ($value as $entity) {
+					if (!$existing->contains($entity)) {
+						$existing->add($entity);
+					}
+				}
+			} elseif (!is_callable([$entity, $method])) {
+				$this->reflectProperty($entity, $name)->setValue($entity, $value);
+			} else {
+				$entity->$method($value);
 			}
 		}
 
@@ -184,7 +268,7 @@ class Hydrator
 						}
 
 					} else {
-						$this->fillProperty($related_entity, $link, NULL);
+						$this->setProperty($related_entity, $link, NULL);
 					}
 				}
 
@@ -205,7 +289,7 @@ class Hydrator
 						}
 
 					} else {
-						$this->fillProperty($related_entity, $link, $entity);
+						$this->setProperty($related_entity, $link, $entity);
 					}
 				}
 
@@ -229,7 +313,7 @@ class Hydrator
 			$this->fill($related_entity, $value, $protect);
 		}
 
-		$this->fillProperty($entity, $field, $related_entity);
+		$this->setProperty($entity, $field, $related_entity);
 
 		if ($link) {
 
@@ -249,7 +333,7 @@ class Hydrator
 					}
 
 				} else {
-					$this->fillProperty($current_value, $link, NULL);
+					$this->setProperty($current_value, $link, NULL);
 				}
 			}
 
@@ -268,71 +352,8 @@ class Hydrator
 						$link_value->add($entity);
 					}
 				} else {
-					$this->fillProperty($related_entity, $link, $entity);
+					$this->setProperty($related_entity, $link, $entity);
 				}
-			}
-		}
-
-		return $this;
-	}
-
-
-	/**
-	 *  Fill a property on a given entity using reflection if needed.
-	 *
-	 * If the property name is separated by dots, the entity will be resolved via reflection first
-	 * and the final property will be set on the entity traversed to.
-	 */
-	protected function fillProperty(object $entity, string $name, $value): Hydrator
-	{
-		if (strpos($name, '.')) {
-			$parts = explode('.', $name);
-			$name  = array_pop($parts);
-
-			foreach ($parts as $part) {
-				if (property_exists($entity, $part)) {
-					$entity = $this->reflectProperty($entity, $part)->getValue($entity);
-				}
-			}
-		}
-
-		if (property_exists($entity, $name)) {
-			$method   = 'set' . ucwords($name);
-			$property = $this->reflectProperty($entity, $name);
-			$existing = $property->getValue($entity);
-
-			//
-			// Note: this should only be employed for basic collection mapping.  Associations
-			// are more appropriately handled by the fillAssociation* methods.  This is, however,
-			// important for if collections are used in place of arrays -- particularly for
-			// serialization and deserialization.
-			//
-
-			if ($existing instanceof Collections\Collection) {
-				if ($value instanceof Collections\Collection) {
-					$value = $value->toArray();
-				} else {
-					settype($value, 'array');
-				}
-
-				foreach ($existing as $i => $entity) {
-					if (!in_array($entity, $value, TRUE)) {
-						$existing->remove($i);
-					}
-				}
-
-				foreach ($value as $entity) {
-					if (!$existing->contains($entity)) {
-						$existing->add($entity);
-					}
-				}
-
-			} elseif (!is_callable([$entity, $method])) {
-				$this->reflectProperty($entity, $name)->setValue($entity, $value);
-
-			} else {
-				$entity->$method($value);
-
 			}
 		}
 
@@ -343,7 +364,7 @@ class Hydrator
 	/**
 	 *
 	 */
-	public function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL): ?object
+	protected function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL): ?object
 	{
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
@@ -421,30 +442,6 @@ class Hydrator
 
 
 	/**
-	 * Find the property of a field.
-	 */
-	public function getProperty($entity, $field)
-	{
-		$prop = NULL;
-
-		if (strpos($field, '.')) {
-			$parts = explode('.', $field);
-			array_pop($parts);
-
-			foreach ($parts as $part) {
-				if (!property_exists($entity, $part)) {
-					$prop = $this->reflectProperty($entity, $part)->getValue($entity);
-				}
-			}
-		} else {
-			$prop = $this->reflectProperty($entity, $field)->getValue($entity);
-		}
-
-		return $prop;
-	}
-
-
-	/**
 	 *
 	 */
 	protected function reflectProperty(object $entity, $name): ReflectionProperty
@@ -459,7 +456,6 @@ class Hydrator
 			try {
 				static::$reflections[$class][$name] = static::$reflections[$class]['@']->getProperty($name);
 				static::$reflections[$class][$name]->setAccessible(TRUE);
-
 			} catch (ReflectionException $e) {
 				throw new InvalidArgumentException(sprintf(
 					'Cannot set property, class "%s" has no property named "%s"',

@@ -7,7 +7,6 @@ use InvalidArgumentException;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityRepository;
-use Doctrine\ORM\EntityManagerInterface as EntityManager;
 use Doctrine\Common\Collections;
 
 /**
@@ -36,12 +35,13 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function __construct(ManagerRegistry $registry, Hydrator $hydrator)
+	public function __construct(ManagerRegistry $registry, Hydrator $hydrator, Replicator $replicator)
 	{
-		$this->registry = $registry;
-		$this->hydrator = $hydrator;
-		$this->manager  = $this->registry->getManagerForClass(static::$entity);
-		$this->metaData = $this->manager->getClassMetaData(static::$entity);
+		$this->registry   = $registry;
+		$this->hydrator   = $hydrator;
+		$this->replicator = $replicator;
+		$this->manager    = $this->registry->getManagerForClass(static::$entity);
+		$this->metaData   = $this->manager->getClassMetaData(static::$entity);
 
 		parent::__construct($this->manager, $this->metaData);
 	}
@@ -213,6 +213,15 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $this;
+	}
+
+
+	/**
+	 *
+	 */
+	public function replicate($entity)
+	{
+		return $this->replicator->clone($entity);
 	}
 
 
