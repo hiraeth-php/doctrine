@@ -9,13 +9,14 @@ use Doctrine\ORM\Mapping\ClassMetadataInfo;
  */
 class Replicator
 {
+	use PropertyAccess;
+
 	/**
 	 *
 	 */
-	public function __construct(ManagerRegistry $registry, Hydrator $hydrator)
+	public function __construct(ManagerRegistry $registry)
 	{
 		$this->registry = $registry;
-		$this->hydrator = $hydrator;
 	}
 
 
@@ -30,7 +31,7 @@ class Replicator
 		$manager  = $this->registry->getManagerForClass($class);
 
 		foreach ($data as $field => $value) {
-			$this->hydrator->setProperty($entity, $field, $value);
+			$this->setProperty($entity, $field, $value);
 		}
 
 		foreach ($manager->getClassMetaData($class)->associationMappings as $mapping) {
@@ -39,11 +40,11 @@ class Replicator
 			}
 
 			if ($mapping['type'] == ClassMetadataInfo::ONE_TO_ONE) {
-				$this->hydrator->setProperty(
+				$this->setProperty(
 					$entity,
 					$mapping['fieldName'],
 					$this->clone(
-						$this->hydrator->getProperty($entity, $mapping['fieldName']),
+						$this->getProperty($entity, $mapping['fieldName']),
 						$mapping['inversedBy']
 							? [$mapping['inversedBy'] => $entity]
 							: (
@@ -59,9 +60,9 @@ class Replicator
 			}
 
 			if ($mapping['type'] == ClassMetadataInfo::ONE_TO_MANY) {
-				$collection = clone $this->hydrator->getProperty($entity, $mapping['fieldName']);
+				$collection = clone $this->getProperty($entity, $mapping['fieldName']);
 
-				$this->hydrator->setProperty(
+				$this->setProperty(
 					$entity,
 					$mapping['fieldName'],
 					$collection->map(
