@@ -25,6 +25,10 @@ class Replicator
 	 */
 	public function clone($entity, array $data = array(), array $source = array())
 	{
+		if (is_null($entity)) {
+			return NULL;
+		}
+
 		$original = $entity;
 		$entity   = clone $original;
 		$class    = get_class($entity);

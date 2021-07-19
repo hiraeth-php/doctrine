@@ -50,7 +50,7 @@ trait PropertyAccess
 	 * If the property name is separated by dots, the entity will be resolved via reflection first
 	 * and the final property will be set on the entity traversed to.
 	 */
-	public function setProperty(object $entity, string $name, $value): Hydrator
+	public function setProperty(object $entity, string $name, $value): self
 	{
 		if (strpos($name, '.')) {
 			$parts = explode('.', $name);
