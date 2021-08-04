@@ -3,12 +3,12 @@
 namespace Hiraeth\Doctrine;
 
 use InvalidArgumentException;
-use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections;
 
 /**
  *
  */
-class Collection extends ArrayCollection
+class Collection extends Collections\ArrayCollection
 {
 	use PropertyAccess;
 

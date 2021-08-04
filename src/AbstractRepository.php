@@ -84,9 +84,10 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * {@inheritDoc}
+	 * @return AbstractEntity|NULL
 	 */
-	public function find($id, $lock_mode = NULL, $lock_version = NULL)
+	public function find($id, $lock_mode = NULL, $lock_version = NULL): ?AbstractEntity
 	{
 		if ($id === NULL) {
 			return NULL;
@@ -107,53 +108,72 @@ abstract class AbstractRepository extends EntityRepository
 	 *
 	 * {@inheritDoc}
 	 * @param array $order_by The order by clause to add
+	 * @return Collections\Collection
 	 */
-	public function findAll(?array $order_by = [])
+	public function findAll(?array $order_by = []): Collections\Collection
 	{
-		if (!is_null($order_by)) {
-			$order_by = array_merge($order_by, static::$order);
-		}
-
 		return $this->findBy([], $order_by);
 	}
 
 
 	/**
 	 * {@inheritDoc}
+	 * @return Collections\Collection
 	 */
-	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null)
+	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null): Collections\Collection
 	{
-		$persister = $this->_em->getUnitOfWork()->getEntityPersister($this->_entityName);
-
 		if (!is_null($order_by)) {
-			$order_by = array_merge($order_by, static::$order);
+			$order_by = $order_by + static::$order;
 		}
 
-		foreach ($criteria as $key => $value) {
+		return $this->query(function ($builder) use ($criteria, $order_by, $limit, $offset) {
+			$builder = $this->join($builder, array_keys($criteria));
+			$param   = 1;
 
-			//
-			// This enables us to pass a collection as an array for `IN()` criteria
-			//
+			foreach ($criteria as $key => $value) {
+				if (strpos($key, '.') === FALSE) {
+					$key = sprintf('this.%s', $key);
+				}
 
-			if ($value instanceof Collections\Collection) {
-				$criteria[$key] = $value->getValues();
+				if ($value instanceof Collections\Collection) {
+					$value = $value->getValues();
+				}
+
+				if (is_null($value)) {
+					$expr = $builder->expr()->isNull($key);
+				} else {
+					if (is_array($value)) {
+						$expr = $builder->expr()->in($key, '?' . $param);
+					} else {
+						$expr = $builder->expr()->eq($key, '?' . $param);
+					}
+
+					$builder->setParameter($param++, $value);
+				}
+
+				$builder->andWhere($expr);
 			}
-		}
 
-		return new static::$collection($persister->loadAll($criteria, $order_by, $limit, $offset));
+			if (!is_null($limit)) {
+				$builder->setMaxResults($limit);
+			}
+
+			if (!is_null($offset)) {
+				$builder->setFirstResult($offset);
+			}
+
+			return $this->order($builder, $order_by);
+		});
 	}
 
 
 	/**
 	 * {@inheritDoc}
+	 * @return AbstractEntity|NULL
 	 */
-	public function findOneBy(array $criteria, ?array $order_by = [])
+	public function findOneBy(array $criteria, ?array $order_by = []): ?AbstractEntity
 	{
-		if (!is_null($order_by)) {
-			$order_by = array_merge($order_by, static::$order);
-		}
-
-		return parent::findOneBy($criteria, $order_by);
+		return $this->findBy($criteria, $order_by, 1)->first() ?: NULL;
 	}
 
 
@@ -162,14 +182,10 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function query($build_callback, &$nonlimited_count = NULL): Collections\Collection
 	{
-		$builder      = $this->build($build_callback);
-		$order_parts  = $builder->getDQLPart('orderBy');
-		$select_parts = $builder->getDQLPart('select');
+		$builder = $this->build($build_callback);
 
-		if (empty($order_parts) && in_array('DISTINCT this', $select_parts[0]->getParts())) {
-			foreach (static::$order as $property => $direction) {
-				$builder->addOrderBy('this.' . $property, $direction);
-			}
+		if (in_array('DISTINCT this', $builder->getDQLPart('select')[0]->getParts())) {
+			$builder = $this->order($builder, static::$order);
 		}
 
 		if (func_num_args() == 2) {
@@ -304,5 +320,73 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $collection;
+	}
+
+
+	/**
+	 *
+	 */
+	protected function join(QueryBuilder $builder, array $paths = array())
+	{
+		foreach ($paths as $path) {
+			if (strpos($path, '.') === FALSE) {
+				continue;
+			}
+
+			$alias = explode('.', $path, 2)[0];
+			$joins = array_filter(
+				$builder->getDQLPart('join'),
+				function($join_sql) use ($alias) {
+					foreach ($join_sql as $join) {
+						if (explode('.', $join->getJoin(), 2)[1] == $alias) {
+							return TRUE;
+						}
+					}
+
+					return FALSE;
+				}
+			);
+
+			if (!count($joins)) {
+				$builder->leftJoin(sprintf('this.%s', $alias), $alias, 'ON');
+				$builder->addSelect($alias);
+			}
+		}
+
+		return $builder;
+	}
+
+
+	/**
+	 *
+	 */
+	protected function order(QueryBuilder $builder, array $order = array())
+	{
+		$builder = $this->join($builder, array_keys($order));
+
+		foreach ($order as $path => $dir) {
+			if (strpos($path, '.') === FALSE) {
+				$path = sprintf('this.%s', $path);
+			}
+
+			$orders = array_filter(
+				$builder->getDQLPart('orderBy'),
+				function($order_sql) use ($path) {
+					foreach ($order_sql->getParts() as $order) {
+						if (explode(' ', $order, 2)[0] == $path) {
+							return TRUE;
+						}
+					}
+
+					return FALSE;
+				}
+			);
+
+			if (!count($orders)) {
+				$builder->addOrderBy($path, $dir);
+			}
+		}
+
+		return $builder;
 	}
 }
