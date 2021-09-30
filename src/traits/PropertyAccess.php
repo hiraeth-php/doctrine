@@ -21,7 +21,7 @@ trait PropertyAccess
 	/**
 	 * Find the property of a field.
 	 */
-	public function getProperty($entity, $name)
+	public function getProperty($entity, $name, $ignore_getter = FALSE)
 	{
 		$value = NULL;
 
@@ -37,7 +37,13 @@ trait PropertyAccess
 		}
 
 		if (property_exists($entity, $name)) {
-			$value = $this->reflectProperty($entity, $name)->getValue($entity);
+			$method   = 'get' . ucwords($name);
+
+			if ($ignore_getter || !is_callable([$entity, $method])) {
+				$value = $this->reflectProperty($entity, $name)->getValue($entity);
+			} else {
+				$value = $entity->$method();
+			}
 		}
 
 		return $value;
@@ -50,7 +56,7 @@ trait PropertyAccess
 	 * If the property name is separated by dots, the entity will be resolved via reflection first
 	 * and the final property will be set on the entity traversed to.
 	 */
-	public function setProperty(object $entity, string $name, $value): self
+	public function setProperty(object $entity, string $name, $value, $ignore_setter = FALSE): self
 	{
 		if (strpos($name, '.')) {
 			$parts = explode('.', $name);
@@ -93,7 +99,8 @@ trait PropertyAccess
 						$existing->add($entity);
 					}
 				}
-			} elseif (!is_callable([$entity, $method])) {
+
+			} elseif ($ignore_setter || !is_callable([$entity, $method])) {
 				$this->reflectProperty($entity, $name)->setValue($entity, $value);
 			} else {
 				$entity->$method($value);

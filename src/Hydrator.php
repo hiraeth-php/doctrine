@@ -174,7 +174,13 @@ class Hydrator
 						}
 
 					} else {
-						$this->setProperty($related_entity, $link, NULL);
+
+						//
+						// The below method ignores setters so that setters can restrict null as a
+						// value.
+						//
+
+						$this->setProperty($related_entity, $link, NULL, TRUE);
 					}
 				}
 
@@ -220,7 +226,6 @@ class Hydrator
 		$this->setProperty($entity, $field, $related_entity);
 
 		if ($link) {
-
 			//
 			// If there's a link and a current value, remove the entity from the current value's
 			// link if it's a collection, or set to null if it's a single entity.
@@ -235,7 +240,13 @@ class Hydrator
 					}
 
 				} else {
-					$this->setProperty($current_value, $link, NULL);
+
+					//
+					// The below method ignores setters so that setters can restrict null as a
+					// value.
+					//
+
+					$this->setProperty($current_value, $link, NULL, TRUE);
 				}
 			}
 
