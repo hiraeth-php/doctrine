@@ -107,6 +107,7 @@ abstract class AbstractRepository extends EntityRepository
 	 *
 	 * {@inheritDoc}
 	 * @param array $order_by The order by clause to add
+	 * @return Collections\Collection
 	 */
 	public function findAll(?array $order_by = [])
 	{
