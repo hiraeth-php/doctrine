@@ -225,7 +225,7 @@ abstract class AbstractRepository extends EntityRepository
 		$this->_em->remove($entity);
 
 		if ($flush) {
-			$this->_em->flush($entity);
+			$this->_em->flush();
 		}
 
 		return $this;
@@ -249,7 +249,7 @@ abstract class AbstractRepository extends EntityRepository
 		$this->_em->persist($entity);
 
 		if ($flush) {
-			$this->_em->flush($entity);
+			$this->_em->flush();
 		}
 
 		if ($recompute) {
