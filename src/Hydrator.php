@@ -140,7 +140,7 @@ class Hydrator
 	{
 		settype($values, 'array');
 
-		$new_collection = new Collections\ArrayCollection();
+		$new_collection = new Collection();
 		$cur_collection = $this->getProperty($entity, $field);
 
 		if (!$cur_collection instanceof Collections\Collection) {
