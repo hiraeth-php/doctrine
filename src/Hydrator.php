@@ -141,7 +141,7 @@ class Hydrator
 		settype($values, 'array');
 
 		$new_collection = new Collection();
-		$cur_collection = $this->getProperty($entity, $field);
+		$cur_collection = $this->getProperty($entity, $field, TRUE);
 
 		if (!$cur_collection instanceof Collections\Collection) {
 			throw new RuntimeException(sprintf(
@@ -166,7 +166,7 @@ class Hydrator
 		foreach ($cur_collection as $related_entity) {
 			if (!$new_collection->contains($related_entity)) {
 				if ($link) {
-					$link_value = $this->getProperty($related_entity, $link);
+					$link_value = $this->getProperty($related_entity, $link, TRUE);
 
 					if ($link_value instanceof Collections\Collection) {
 						if ($link_value->contains($entity)) {
@@ -191,7 +191,7 @@ class Hydrator
 		foreach ($new_collection as $related_entity) {
 			if (!$cur_collection->contains($related_entity)) {
 				if ($link) {
-					$link_value = $this->getProperty($related_entity, $link);
+					$link_value = $this->getProperty($related_entity, $link, TRUE);
 
 					if ($link_value instanceof Collections\Collection) {
 						if (!$link_value->contains($entity)) {
@@ -199,7 +199,7 @@ class Hydrator
 						}
 
 					} else {
-						$this->setProperty($related_entity, $link, $entity);
+						$this->setProperty($related_entity, $link, $entity, TRUE);
 					}
 				}
 
@@ -216,14 +216,14 @@ class Hydrator
 	 */
 	protected function fillAssociationToOne(object $entity, string $field, ?string $link, $value, bool $protect = TRUE): self
 	{
-		$current_value  = $this->getProperty($entity, $field);
+		$current_value  = $this->getProperty($entity, $field, TRUE);
 		$related_entity = $this->findAssociated($entity, $field, $value);
 
 		if (is_array($value)) {
 			$this->fill($related_entity, $value, $protect);
 		}
 
-		$this->setProperty($entity, $field, $related_entity);
+		$this->setProperty($entity, $field, $related_entity, TRUE);
 
 		if ($link) {
 			//
@@ -232,7 +232,7 @@ class Hydrator
 			//
 
 			if ($current_value) {
-				$link_value = $this->getProperty($current_value, $link);
+				$link_value = $this->getProperty($current_value, $link, TRUE);
 
 				if ($link_value instanceof Collections\Collection) {
 					if ($link_value->contains($entity)) {
@@ -256,14 +256,14 @@ class Hydrator
 			//
 
 			if ($related_entity) {
-				$link_value = $this->getProperty($related_entity, $link);
+				$link_value = $this->getProperty($related_entity, $link, TRUE);
 
 				if ($link_value instanceof Collections\Collection) {
 					if (!$link_value->contains($entity)) {
 						$link_value->add($entity);
 					}
 				} else {
-					$this->setProperty($related_entity, $link, $entity);
+					$this->setProperty($related_entity, $link, $entity, TRUE);
 				}
 			}
 		}
@@ -338,7 +338,7 @@ class Hydrator
 		if (count($id) == count($target_id_fields)) {
 			$existing_record = $manager->find($target, $id, $lock_mode, $lock_version);
 		} else {
-			$existing_record = $this->getProperty($entity, $field);
+			$existing_record = $this->getProperty($entity, $field, TRUE);
 		}
 
 		//
