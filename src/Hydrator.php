@@ -174,12 +174,6 @@ class Hydrator
 						}
 
 					} else {
-
-						//
-						// The below method ignores setters so that setters can restrict null as a
-						// value.
-						//
-
 						$this->setProperty($related_entity, $link, NULL, TRUE);
 					}
 				}
@@ -240,12 +234,6 @@ class Hydrator
 					}
 
 				} else {
-
-					//
-					// The below method ignores setters so that setters can restrict null as a
-					// value.
-					//
-
 					$this->setProperty($current_value, $link, NULL, TRUE);
 				}
 			}
