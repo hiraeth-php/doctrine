@@ -220,12 +220,19 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function remove($entity, $flush = FALSE): AbstractRepository
+	public function remove($entity, $flush = FALSE, $recompute = FALSE): AbstractRepository
 	{
 		$this->_em->remove($entity);
 
 		if ($flush) {
 			$this->_em->flush();
+		}
+
+		if ($recompute) {
+			$this->_em->getUnitOfWork()->computeChangeSet(
+				$this->_em->getClassMetadata(get_class($entity)),
+				$entity
+			);
 		}
 
 		return $this;
