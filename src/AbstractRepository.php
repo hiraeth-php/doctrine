@@ -184,7 +184,7 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		$builder = $this->build($build_callback);
 
-		if (in_array('this', $builder->getDQLPart('select')[0]->getParts())) {
+		if (in_array('DISTINCT this', $builder->getDQLPart('select')[0]->getParts())) {
 			$builder = $this->order($builder, static::$order);
 		}
 
@@ -288,7 +288,7 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		$builder = $this->_em
 			-> createQueryBuilder()
-			-> select('this')
+			-> select('DISTINCT this')
 			-> from(static::$entity, 'this')
 		;
 
