@@ -56,6 +56,7 @@
 			"time"     : "Hiraeth\Doctrine\DateTimeFilter",
 			"datetime" : "Hiraeth\Doctrine\DateTimeFilter",
 			"timestamp": "Hiraeth\Doctrine\DateTimeFilter",
+			"boolean"  : "Hiraeth\Doctrine\BooleanFilter",
 			"file"     : "Hiraeth\Doctrine\FileFilter"
 		}
 
