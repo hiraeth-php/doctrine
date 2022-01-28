@@ -305,14 +305,10 @@ class Hydrator
 		//
 
 		if (!is_scalar($id)) {
-			$id = array_filter(array_intersect_key($id, array_flip($target_id_fields)), function($value) {
-				return !in_array($value, ['', NULL], TRUE);
-			});
+			$id = array_filter(array_intersect_key($id, array_flip($target_id_fields)));
 
 		} elseif (count($target_id_fields) == 1) {
-			$id = array_filter([$target_id_fields[0] => $id], function($value) {
-				return !in_array($value, ['', NULL], TRUE);
-			});
+			$id = [$target_id_fields[0] => $id];
 
 		} else {
 			throw new RuntimeException(sprintf(
