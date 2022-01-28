@@ -284,7 +284,7 @@ class Hydrator
 		//
 
 		if (!is_array($id)) {
-			if (empty($id)) {
+			if (in_array($id, ['', NULL], TRUE)) {
 				return NULL;
 			}
 
@@ -308,7 +308,7 @@ class Hydrator
 			$id = array_filter(array_intersect_key($id, array_flip($target_id_fields)));
 
 		} elseif (count($target_id_fields) == 1) {
-			$id = array_filter([$target_id_fields[0] => $id]);
+			$id = [$target_id_fields[0] => $id];
 
 		} else {
 			throw new RuntimeException(sprintf(
