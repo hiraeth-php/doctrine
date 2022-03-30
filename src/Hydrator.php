@@ -7,6 +7,7 @@ use Doctrine\Common\Collections;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\Persistence\Proxy;
 use RuntimeException;
+use Student;
 
 /**
  *
@@ -217,8 +218,6 @@ class Hydrator
 			$this->fill($related_entity, $value, $protect);
 		}
 
-		$this->setProperty($entity, $field, $related_entity, TRUE);
-
 		if ($link) {
 			//
 			// If there's a link and a current value, remove the entity from the current value's
@@ -255,6 +254,8 @@ class Hydrator
 				}
 			}
 		}
+
+		$this->setProperty($entity, $field, $related_entity, TRUE);
 
 		return $this;
 	}

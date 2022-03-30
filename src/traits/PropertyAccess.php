@@ -102,6 +102,7 @@ trait PropertyAccess
 
 			} elseif ($ignore_setter || !is_callable([$entity, $method])) {
 				$this->reflectProperty($entity, $name)->setValue($entity, $value);
+
 			} else {
 				$entity->$method($value);
 			}
