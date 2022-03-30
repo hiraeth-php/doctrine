@@ -7,7 +7,6 @@ use Doctrine\Common\Collections;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\Persistence\Proxy;
 use RuntimeException;
-use Student;
 
 /**
  *
