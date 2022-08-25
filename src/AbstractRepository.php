@@ -193,11 +193,10 @@ abstract class AbstractRepository extends EntityRepository
 				return clone $builder;
 			}, TRUE, $cache);
 		}
-
 		return $this->collect(
 			$cache
 				? $builder->getQuery()
-				: $builder->getQuery()->disableResultCache()
+				: $builder->getQuery()->useQueryCache(FALSE)
 		);
 	}
 
@@ -219,7 +218,7 @@ abstract class AbstractRepository extends EntityRepository
 
 		return $cache
 			? $builder->getQuery()->getSingleScalarResult()
-			: $builder->getQuery()->disableResultCache()->getSingleScalarResult();
+			: $builder->getQuery()->useQueryCache(FALSE)->getSingleScalarResult();
 	}
 
 
