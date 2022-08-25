@@ -180,7 +180,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	  *
 	 */
-	public function query($build_callback, &$nonlimited_count = NULL): Collections\Collection
+	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collections\Collection
 	{
 		$builder = $this->build($build_callback);
 
@@ -188,20 +188,24 @@ abstract class AbstractRepository extends EntityRepository
 			$builder = $this->order($builder, static::$order);
 		}
 
-		if (func_num_args() == 2) {
+		if ($nonlimited_count === 0) {
 			$nonlimited_count = $this->queryCount(function() use ($builder) {
 				return clone $builder;
-			}, TRUE);
+			}, TRUE, $cache);
 		}
 
-		return $this->collect($builder->getQuery());
+		return $this->collect(
+			$cache
+				? $builder->getQuery()
+				: $builder->getQuery()->disableResultCache()
+		);
 	}
 
 
 	/**
 	 *
 	 */
-	public function queryCount($build_callback, $non_limited = FALSE): int
+	public function queryCount($build_callback, bool $non_limited = FALSE, bool $cache = TRUE): int
 	{
 		$builder = $this->build($build_callback);
 
@@ -213,7 +217,9 @@ abstract class AbstractRepository extends EntityRepository
 			$builder->setFirstResult(0);
 		}
 
-		return $builder->getQuery()->getSingleScalarResult();
+		return $cache
+			? $builder->getQuery()->getSingleScalarResult()
+			: $builder->getQuery()->disableResultCache()->getSingleScalarResult();
 	}
 
 
