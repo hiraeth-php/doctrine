@@ -14,7 +14,7 @@
     "require": {
         "hiraeth/app": "^2.0",
         "hiraeth/dbal": "^1.0",
-        "doctrine/orm": "^2.6",
+        "doctrine/orm": "^2.13",
         "hiraeth/caching-imp": "^1.0",
         "doctrine/annotations": "^1.0",
         "cache/psr-6-doctrine-bridge": "^3.0"

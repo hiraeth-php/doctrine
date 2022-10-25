@@ -5,16 +5,14 @@ namespace Hiraeth\Doctrine;
 use Hiraeth;
 use Doctrine\ORM;
 use Doctrine\DBAL;
-use Doctrine\ORM\Query;
 use Doctrine\Persistence;
-use Doctrine\Common\Cache;
+use Doctrine\Common\Proxy\AbstractProxyFactory;
 
 use ReflectionClass;
 use RuntimeException;
 use InvalidArgumentException;
 use Hiraeth\Caching\PoolManager;
 use Hiraeth\Dbal\ConnectionRegistry;
-use Cache\Bridge\Doctrine\DoctrineCacheBridge;
 
 /**
  *
@@ -210,13 +208,12 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 					$pool = $this->pools->getDefaultPool();
 				}
 
-				$cache = new DoctrineCacheBridge($pool);
+				$config->setMetadataCache($pool);
+				$config->setQueryCache($pool);
 
 			} else {
-				$cache = $this->app->get(Cache\ArrayCache::class);
-
 				$config->setAutoGenerateProxyClasses(TRUE);
-				$config->setAutoGenerateProxyClasses(ORM\Proxy\ProxyFactory::AUTOGENERATE_ALWAYS);
+				$config->setAutoGenerateProxyClasses(AbstractProxyFactory::AUTOGENERATE_ALWAYS);
 
 			}
 
@@ -235,18 +232,16 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			);
 
 			if (!empty($options['walkers']['output'])) {
-				$config->setDefaultQueryHint(Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
+				$config->setDefaultQueryHint(ORM\Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
 			}
 
 			if (!empty($options['walkers']['tree'])) {
-				$config->setDefaultQueryHint(Query::HINT_CUSTOM_TREE_WALKERS, $options['walkers']['tree']);
+				$config->setDefaultQueryHint(ORM\Query::HINT_CUSTOM_TREE_WALKERS, $options['walkers']['tree']);
 			}
 
 			$config->setProxyDir($proxy_dir);
 			$config->setProxyNamespace($proxy_ns);
 			$config->setMetadataDriverImpl($driver);
-			$config->setMetadataCacheImpl($cache);
-			$config->setQueryCacheImpl($cache);
 
 			$this->managers[$name] = ORM\EntityManager::create(
 				$this->getConnection($options['connection']),
