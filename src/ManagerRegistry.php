@@ -6,7 +6,7 @@ use Hiraeth;
 use Doctrine\ORM;
 use Doctrine\DBAL;
 use Doctrine\ORM\Query;
-use Doctrine\Common\Persistence;
+use Doctrine\Persistence;
 use Doctrine\Common\Cache;
 
 use ReflectionClass;
