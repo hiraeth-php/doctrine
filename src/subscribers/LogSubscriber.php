@@ -1,24 +1,31 @@
 <?php
 
-namespace Inkwell;
+namespace Hiraeth\Doctrine;
 
 use Doctrine\Common;
 use Doctrine\ORM\Events;
 use Doctrine\ORM\Event\LifecycleEventArgs;
-use Hiraeth\Dbal\FileType;
-use SplFileInfo;
+
+use Psr\Log\LoggerInterface;
 
 /**
  *
  */
-class UploadSubscriber implements Common\EventSubscriber
+class LogSubscriber implements Common\EventSubscriber
 {
+
 	/**
 	 *
 	 */
-	public function __construct(UploaderService $uploader)
+	protected $logger = array();
+
+
+	/**
+	 *
+	 */
+	public function __construct(LoggerInterface $logger)
 	{
-		$this->uploader = $uploader;
+		$this->logger = $logger;
 	}
 
 
@@ -28,52 +35,33 @@ class UploadSubscriber implements Common\EventSubscriber
 	public function getSubscribedEvents()
 	{
 		return [
-			Events::preUpdate,
-			Events::prePersist
+			Events::postPersist,
+			Events::postRemove,
+			Events::postUpdate,
 		];
 	}
 
+	/**
+	 *
+	 */
+	public function postPersist(LifecycleEventArgs $args)
+	{
+		$this->logger->info('Entity has been persisted.', ['entity' => $args->getEntity()]);
+	}
 
 	/**
 	 *
 	 */
-	public function prePersist(LifecycleEventArgs $args)
+	public function postRemove(LifecycleEventArgs $args)
 	{
-		$this->commit($args);
+		$this->logger->info('Entity has been removed.', ['entity' => $args->getEntity()]);
 	}
-
 
 	/**
 	 *
 	 */
-	public function preUpdate(LifecycleEventArgs $args)
+	public function postUpdate(LifecycleEventArgs $args)
 	{
-		$this->commit($args);
+		$this->logger->info('Entity has been updated.', ['entity' => $args->getEntity()]);
 	}
-
-
-	/**
-	 *
-	 */
-	protected function commit(LifecycleEventArgs $args)
-	{
-		$manager = $args->getEntityManager();
-		$entity = $args->getEntity();
-
-		$meta_data = $manager->getClassMetaData(get_class($entity));
-
-		foreach ($meta_data->getFieldNames() as $field) {
-			$mapping = $meta_data->getFieldMapping($field);
-
-			if ($mapping['type'] != FileType::FILE) {
-				continue;
-			}
-
-			if (!$value = $meta_data->getFieldValue($entity, $field)) {
-				continue;
-			}
-
-			$meta_data->setFieldValue($entity, $field, $this->uploader->commit($value));
-		}
-	}
-}
+ }
