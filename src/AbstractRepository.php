@@ -6,30 +6,62 @@ use InvalidArgumentException;
 
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\Common\Collections;
+use Doctrine\Persistence\Mapping\ClassMetadata;
 
 /**
- *
+ * @extends EntityRepository<AbstractEntity>
  */
 abstract class AbstractRepository extends EntityRepository
 {
 	/**
-	 *
+	 * @var class-string<AbstractEntity>
 	 */
-	protected static $entity = NULL;
+	protected static $entity;
 
 
 	/**
-	 *
+	 * @var class-string<Collections\Collection>
 	 */
 	protected static $collection = Collection::class;
 
 
 	/**
-	 *
+	 * @var array<string, string>
 	 */
 	protected static $order = [];
+
+
+	/**
+	 * @var Hydrator
+	 */
+	protected $hydrator;
+
+
+	/**
+	 * @var ClassMetadata<AbstractEntity>
+	 */
+	protected $metaData;
+
+
+	/**
+	 * @var EntityManager
+	 */
+	protected $manager;
+
+
+	/**
+	 * @var ManagerRegistry
+	 */
+	protected $registry;
+
+
+	/**
+	 * @var Replicator
+	 */
+	protected $replicator;
 
 
 	/**
@@ -48,18 +80,21 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param AbstractEntity $entity
+	 * @return AbstractRepository
 	 */
 	public function attach($entity): AbstractRepository
 	{
-		$this->_em->merge($entity);
+		$this->getEntityManager()->merge($entity);
 
 		return $this;
 	}
 
 
 	/**
-	 *
+	 * @param array<string, mixed> $data
+	 * @param bool $protect
+	 * @return AbstractEntity
 	 */
 	public function create(array $data = array(), bool $protect = TRUE): AbstractEntity
 	{
@@ -73,11 +108,11 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param AbstractEntity $entity
 	 */
 	public function detach($entity): AbstractRepository
 	{
-		$this->_em->detach($entity);
+		$this->getEntityManager()->detach($entity);
 
 		return $this;
 	}
@@ -85,6 +120,7 @@ abstract class AbstractRepository extends EntityRepository
 
 	/**
 	 * {@inheritDoc}
+
 	 * @return AbstractEntity|NULL
 	 */
 	public function find($id, $lock_mode = NULL, $lock_version = NULL): ?AbstractEntity
@@ -107,8 +143,9 @@ abstract class AbstractRepository extends EntityRepository
 	 * Standard findAll with the option to add an orderBy
 	 *
 	 * {@inheritDoc}
-	 * @param array $order_by The order by clause to add
-	 * @return Collections\Collection
+	 *
+	 * @param array<string>|null $order_by The order by clause to add
+	 * @return Collections\Collection<int, AbstractEntity>
 	 */
 	public function findAll(?array $order_by = []): Collections\Collection
 	{
@@ -118,7 +155,8 @@ abstract class AbstractRepository extends EntityRepository
 
 	/**
 	 * {@inheritDoc}
-	 * @return Collections\Collection
+	 *
+	 * @return Collections\Collection<int, AbstractEntity>
 	 */
 	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null): Collections\Collection
 	{
@@ -178,7 +216,8 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	  *
+	 * @param callable|string|array<mixed> $build_callback
+	 * @return Collections\Collection<int, AbstractEntity>
 	 */
 	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collections\Collection
 	{
@@ -202,7 +241,7 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param callable|string|array<mixed> $build_callback
 	 */
 	public function queryCount($build_callback, bool $non_limited = FALSE, bool $cache = TRUE): int
 	{
@@ -223,19 +262,19 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param AbstractEntity $entity
 	 */
-	public function remove($entity, $flush = FALSE, $recompute = FALSE): AbstractRepository
+	public function remove($entity, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
 	{
-		$this->_em->remove($entity);
+		$this->getEntityManager()->remove($entity);
 
 		if ($flush) {
-			$this->_em->flush();
+			$this->getEntityManager()->flush();
 		}
 
 		if ($recompute) {
-			$this->_em->getUnitOfWork()->computeChangeSet(
-				$this->_em->getClassMetadata(get_class($entity)),
+			$this->getEntityManager()->getUnitOfWork()->computeChangeSet(
+				$this->getEntityManager()->getClassMetadata(get_class($entity)),
 				$entity
 			);
 		}
@@ -245,7 +284,8 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param AbstractEntity $entity
+	 * @return AbstractEntity
 	 */
 	public function replicate($entity)
 	{
@@ -254,19 +294,19 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param AbstractEntity $entity
 	 */
-	public function store($entity, $flush = FALSE, $recompute = FALSE): AbstractRepository
+	public function store($entity, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
 	{
-		$this->_em->persist($entity);
+		$this->getEntityManager()->persist($entity);
 
 		if ($flush) {
-			$this->_em->flush();
+			$this->getEntityManager()->flush();
 		}
 
 		if ($recompute) {
-			$this->_em->getUnitOfWork()->computeChangeSet(
-				$this->_em->getClassMetadata(get_class($entity)),
+			$this->getEntityManager()->getUnitOfWork()->computeChangeSet(
+				$this->getEntityManager()->getClassMetadata(get_class($entity)),
 				$entity
 			);
 		}
@@ -276,9 +316,10 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param AbstractEntity $entity
+	 * @param array<string, mixed> $data
 	 */
-	public function update(AbstractEntity $entity, array $data, bool $protect = TRUE): AbstractRepository
+	public function update($entity, array $data, bool $protect = TRUE): AbstractRepository
 	{
 		$this->hydrator->fill($entity, $data, $protect);
 
@@ -287,30 +328,34 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param callable|string|array<mixed> $build_callback
 	 */
 	protected function build($build_callback): QueryBuilder
 	{
-		$builder = $this->_em
-			-> createQueryBuilder()
+		$builder = $this->getEntityManager()->createQueryBuilder();
+
+		$builder
 			-> select('DISTINCT this')
 			-> from(static::$entity, 'this')
 		;
 
 		if (is_callable($build_callback)) {
 			$builder = $build_callback($builder);
-		} elseif (is_string($build_callback) || is_array($build_callback)) {
-			settype($build_callback, 'array');
+
+		} else {
+			if (!is_array($build_callback)) {
+				$build_callback = array($build_callback);
+			}
 
 			foreach ($build_callback as $method) {
 				if (!is_callable($method)) {
 					$method = [$this, 'build' . ucfirst($method)];
 				}
 
-				$builder = $method($builder);
+				if (is_callable($method)) {
+					$builder = $method($builder);
+				}
 			}
-		} else {
-			throw new InvalidArgumentException('Invalid builder type');
 		}
 
 		return $builder;
@@ -318,7 +363,7 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @return Collections\Collection<int, AbstractEntity>
 	 */
 	protected function collect(Query ...$queries): Collections\Collection
 	{
@@ -336,9 +381,9 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param array<int, string> $paths
 	 */
-	protected function join(QueryBuilder $builder, array $paths = array())
+	protected function join(QueryBuilder $builder, array $paths = array()): QueryBuilder
 	{
 		foreach ($paths as $path) {
 			if (strpos($path, '.') === FALSE) {
@@ -370,9 +415,9 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 *
+	 * @param array<string, string> $order
 	 */
-	protected function order(QueryBuilder $builder, array $order = array())
+	protected function order(QueryBuilder $builder, array $order = array()): QueryBuilder
 	{
 		$builder = $this->join($builder, array_keys($order));
 

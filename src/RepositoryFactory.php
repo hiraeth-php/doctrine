@@ -13,6 +13,12 @@ use Doctrine\ORM\EntityManagerInterface;
 class RepositoryFactory implements Repository\RepositoryFactory
 {
 	/**
+	 * @var ContainerInterface
+	 */
+	protected $container;
+
+
+	/**
 	 *
 	 */
 	public function __construct(ContainerInterface $container)

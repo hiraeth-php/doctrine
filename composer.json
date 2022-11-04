@@ -11,16 +11,20 @@
             "role":  "Lead Architect / Developer"
         }
     ],
+    "autoload": {
+        "classmap": ["src/"]
+    },
     "require": {
         "hiraeth/app": "^2.0",
         "hiraeth/dbal": "^1.0",
         "doctrine/orm": "^2.13",
-        "hiraeth/caching-imp": "^1.0",
+        "hiraeth/caching-imp": "^2.0",
         "doctrine/annotations": "^1.0",
         "cache/psr-6-doctrine-bridge": "^3.0"
     },
-    "autoload": {
-        "classmap": ["src/"]
+    "require-dev": {
+        "phpstan/phpstan": "^1.0",
+        "hiraeth/stash": "^2.0"
     },
     "type": "opus-package",
     "extra": {
@@ -30,10 +34,6 @@
                 "local": ""
             }
         }
-    },
-    "require-dev": {
-        "phpstan/phpstan": "^1.0",
-	"hiraeth/stash": "^1.0"
     },
     "config": {
         "allow-plugins": {

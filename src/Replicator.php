@@ -12,6 +12,12 @@ class Replicator
 	use PropertyAccess;
 
 	/**
+	 * @var ManagerRegistry
+	 */
+	protected $registry;
+
+
+	/**
 	 *
 	 */
 	public function __construct(ManagerRegistry $registry)
@@ -21,7 +27,10 @@ class Replicator
 
 
 	/**
-	 *
+	 * @param mixed $entity
+	 * @param array<string, mixed> $data
+	 * @param array<string|int, string> $source
+	 * @return AbstractEntity|null
 	 */
 	public function clone($entity, array $data = array(), array $source = array())
 	{
@@ -31,7 +40,7 @@ class Replicator
 
 		$original = $entity;
 		$entity   = clone $original;
-		$class    = get_class($entity);
+		$class    = $this->registry->getClassName($entity);
 		$manager  = $this->registry->getManagerForClass($class);
 
 		foreach ($data as $field => $value) {

@@ -3,16 +3,18 @@
 namespace Hiraeth\Doctrine;
 
 use Hiraeth;
+use Hiraeth\Caching\PoolManager;
+use Hiraeth\Dbal\ConnectionRegistry;
+
 use Doctrine\ORM;
 use Doctrine\DBAL;
 use Doctrine\Persistence;
 use Doctrine\Common\Proxy\AbstractProxyFactory;
+use Doctrine\ORM\ORMSetup;
 
 use ReflectionClass;
 use RuntimeException;
 use InvalidArgumentException;
-use Hiraeth\Caching\PoolManager;
-use Hiraeth\Dbal\ConnectionRegistry;
 
 /**
  *
@@ -20,45 +22,45 @@ use Hiraeth\Dbal\ConnectionRegistry;
 class ManagerRegistry implements Persistence\ManagerRegistry
 {
 	/**
-	 *
+	 * @var Hiraeth\Application
 	 */
-	protected $app = NULL;
+	protected $app;
 
 
 	/**
-	 *
+	 * @var ConnectionRegistry
 	 */
-	protected $connectionRegistry = NULL;
+	protected $connectionRegistry;
 
 
 	/**
-	 *
+	 * @var string
 	 */
-	protected $defaultManager = NULL;
+	protected $defaultManager = 'default';
 
 
 	/**
-	 *
+	 * @var array<string, ORM\EntityManager>
 	 */
 	protected $managers = array();
 
 
 	/**
-	 *
+	 * @var array<string, string>
 	 */
-	protected $managerCollections = array();
+	protected $managerConfigs = array();
 
 
 	/**
-	 *
+	 * @var array<string, string[]>
 	 */
 	protected $paths = array();
 
 
 	/**
-	 *
+	 * @var PoolManager
 	 */
-	protected $pools = NULL;
+	protected $pools;
 
 
 	/**
@@ -67,7 +69,6 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	public function __construct(Hiraeth\Application $app, ConnectionRegistry $connection_registry)
 	{
 		$this->app                = $app;
-		$this->defaultManager     = 'default';
 		$this->connectionRegistry = $connection_registry;
 
 		if ($app->has(PoolManager::class)) {
@@ -78,14 +79,14 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			if (isset($config['connection'])) {
 				$name = basename($path);
 
-				if (isset($this->managerCollections[$name])) {
+				if (isset($this->managerConfigs[$name])) {
 					throw new RuntimeException(sprintf(
 						'Cannot add manager "%s", name already used',
 						$name
 					));
 				}
 
-				$this->managerCollections[$name] = $path;
+				$this->managerConfigs[$name] = $path;
 			}
 		}
 
@@ -94,7 +95,9 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 *
+	 * @param string $name
+	 * @param string $path
+	 * @return static
 	 */
 	public function addEntityPath($name, $path): ManagerRegistry
 	{
@@ -109,19 +112,50 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 *
+	 * @param string $alias
+	 * @return string|null
 	 */
 	public function getAliasNamespace($alias)
 	{
 		foreach (array_keys($this->getManagers()) as $name) {
-			$alias = $this->getManager($name)->getConfiguration()->getEntityNamespace($alias);
+			$namespace = $this->getManager($name)->getConfiguration()->getEntityNamespace($alias);
 
-			if ($alias) {
-				return $alias;
+			if ($namespace) {
+				return $namespace;
 			}
 		}
+
+		return NULL;
 	}
 
+
+	/**
+	 * @param object|string $entity
+	 * @return class-string
+	 */
+	public function getClassName($entity)
+	{
+		if (is_object($entity)) {
+			$class = get_class($entity);
+
+		} elseif (strpos($entity, ':') !== false) {
+			$parts = explode(':', $entity, 2);
+			$alias = $parts[0];
+			$class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
+
+		} else {
+			$class = $entity;
+		}
+
+		if (!class_exists($class)) {
+			throw new InvalidArgumentException(sprintf(
+				'Invalid value %s cannot be converted to a valid class',
+				$class
+			));
+		}
+
+		return $class;
+	}
 
 	/**
 	 * {@inheritdoc}
@@ -170,21 +204,24 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 	/**
 	 * {@inheritdoc}
+	 *
+	 * @return ORM\EntityManager
 	 */
-	public function getManager($name = null): Persistence\ObjectManager
+	public function getManager($name = null)
 	{
 		if ($name === null) {
 			$name = $this->defaultManager;
 		}
 
-		if (!isset($this->managerCollections[$name])) {
+		if (!isset($this->managerConfigs[$name])) {
 			throw new InvalidArgumentException(sprintf('Doctrine manager named "%s" does not exist.', $name));
 		}
 
 		if (!isset($this->managers[$name])) {
+			$pool       = NULL;
 			$paths      = array();
 			$config     = new ORM\Configuration();
-			$collection = $this->managerCollections[$name];
+			$collection = $this->managerConfigs[$name];
 
 			$subscribers = $this->app->getConfig('*', 'subscriber', [
 				'class'    => NULL,
@@ -225,7 +262,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$paths = array_merge($paths, $this->paths[$name]);
 			}
 
-			$driver    = $config->newDefaultAnnotationDriver($paths);
+			$driver    = ORMSetup::createDefaultAnnotationDriver($paths, $pool);
 			$proxy_ns  = $options['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
 			$proxy_dir = $options['proxy']['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
@@ -280,32 +317,32 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 	/**
 	 * {@inheritdoc}
+	 *
+	 * @param class-string $class
+	 * @return ORM\EntityManager|null
 	 */
 	public function getManagerForClass($class)
 	{
-		if (strpos($class, ':') !== false) {
-			$parts = explode(':', $class, 2);
-			$alias = $parts[0];
-			$class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
-		}
-
+		$class      = $this->getClassName($class);
 		$reflection = new ReflectionClass($class);
 
 		if ($reflection->implementsInterface(Persistence\Proxy::class)) {
 			$parent = $reflection->getParentClass();
 
 			if (!$parent) {
-				return null;
+				return NULL;
 			}
 
 			$class = $parent->getName();
 		}
 
-		foreach ($this->getManagers() as $name => $manager) {
+		foreach ($this->getManagers() as $manager) {
 			if (!$manager->getMetadataFactory()->isTransient($class)) {
 				return $manager;
 			}
 		}
+
+		return NULL;
 	}
 
 
@@ -314,16 +351,26 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	 */
 	public function getManagerNames()
 	{
-		return array_keys($this->managerCollections);
+		return array_combine(
+			array_keys($this->managerConfigs),
+			array_map(
+				function ($collection) {
+					return $this->app->getConfig($collection, 'manager.name', 'Unknown  Name');
+				},
+				$this->managerConfigs
+			)
+		);
 	}
 
 
 	/**
 	 * {@inheritdoc}
+	 *
+	 * @return array<string, ORM\EntityManager>
 	 */
 	public function getManagers()
 	{
-		foreach ($this->managerCollections as $name => $collection) {
+		foreach ($this->managerConfigs as $name => $collection) {
 			if (!isset($this->managers[$name])) {
 				$this->managers[$name] = $this->getManager($name);
 			}
@@ -353,8 +400,14 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	 */
 	public function resetManager($name = null)
 	{
+		if (!$name) {
+			$name = $this->defaultManager;
+		}
+
 		if (isset($this->managers[$name])) {
 			unset($this->managers[$name]);
 		}
+
+		return $this->getManager($name);
 	}
 }

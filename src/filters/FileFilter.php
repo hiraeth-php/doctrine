@@ -6,6 +6,10 @@ use SplFileInfo;
 
 class FileFilter
 {
+	/**
+	 * @param mixed $value
+	 * @return SplFileInfo|null
+	 */
 	public function __invoke($value)
 	{
 		if ($value) {

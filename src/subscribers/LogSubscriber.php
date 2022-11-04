@@ -15,9 +15,9 @@ class LogSubscriber implements Common\EventSubscriber
 {
 
 	/**
-	 *
+	 * @var LoggerInterface
 	 */
-	protected $logger = array();
+	protected $logger;
 
 
 	/**
@@ -30,7 +30,7 @@ class LogSubscriber implements Common\EventSubscriber
 
 
 	/**
-	 *
+	 * @return array<string>
 	 */
 	public function getSubscribedEvents()
 	{
@@ -42,7 +42,7 @@ class LogSubscriber implements Common\EventSubscriber
 	}
 
 	/**
-	 *
+	 * @return void
 	 */
 	public function postPersist(LifecycleEventArgs $args)
 	{
@@ -50,7 +50,7 @@ class LogSubscriber implements Common\EventSubscriber
 	}
 
 	/**
-	 *
+	 * @return void
 	 */
 	public function postRemove(LifecycleEventArgs $args)
 	{
@@ -58,7 +58,7 @@ class LogSubscriber implements Common\EventSubscriber
 	}
 
 	/**
-	 *
+	 * @return void
 	 */
 	public function postUpdate(LifecycleEventArgs $args)
 	{

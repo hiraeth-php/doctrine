@@ -16,9 +16,15 @@ class Hydrator
 	use PropertyAccess;
 
 	/**
-	 *
+	 * @var array<string, callable>
 	 */
 	protected $filters = array();
+
+
+	/**
+	 * @var ManagerRegistry
+	 */
+	protected $registry;
 
 
 	/**
@@ -29,20 +35,22 @@ class Hydrator
 		$this->registry = $registry;
 	}
 
+
 	/**
-	 *
+	 * @return void
 	 */
-	public function addFilter($type, callable $filter)
+	public function addFilter(string $type, callable $filter)
 	{
 		$this->filters[$type] = $filter;
 	}
 
+
 	/**
-	 *
+	 * @param array<string, mixed> $data
 	 */
-	public function fill($entity, array $data, bool $protect = TRUE): Hydrator
+	public function fill(object $entity, array $data, bool $protect = TRUE): Hydrator
 	{
-		$class     = get_class($entity);
+		$class     = $this->registry->getClassName($entity);
 		$manager   = $this->registry->getManagerForClass($class);
 		$platform  = $manager->getConnection()->getDatabasePlatform();
 		$meta_data = $manager->getClassMetaData($class);
@@ -72,7 +80,7 @@ class Hydrator
 
 			} elseif (array_key_exists($field, $meta_data->fieldMappings)) {
 				if (is_scalar($value) || is_object($value)) {
-					$type  = Type::getType($meta_data->fieldMappings[$field]['type'] ?? 'string');
+					$type  = Type::getType($meta_data->fieldMappings[$field]['type']);
 
 					if (isset($this->filters[$type->getName()])) {
 						$value = $this->filters[$type->getName()]($value);
@@ -97,7 +105,8 @@ class Hydrator
 
 
 	/**
-	 *
+	 * @param mixed $value
+	 * @return self
 	 */
 	protected function fillAssociation(object $entity, string $field, $value, bool $protect = TRUE)
 	{
@@ -130,11 +139,14 @@ class Hydrator
 					$mapping['type']
 				));
 		}
+
+		return $this;
 	}
 
 
 	/**
-	 *
+	 * @param array<mixed> $values
+	 * @return self
 	 */
 	protected function fillAssociationToMany(object $entity, string $field, ?string $link, $values, bool $protect = TRUE): self
 	{
@@ -206,7 +218,8 @@ class Hydrator
 
 
 	/**
-	 *
+	 * @param mixed $value
+	 * @return self
 	 */
 	protected function fillAssociationToOne(object $entity, string $field, ?string $link, $value, bool $protect = TRUE): self
 	{
@@ -261,15 +274,17 @@ class Hydrator
 
 
 	/**
-	 *
+	 * @param mixed $id
+	 * @param 0|1|2|4|null $lock_mode
+	 * @return object
 	 */
-	protected function findAssociated($entity, $field, $id, $lock_mode = NULL, $lock_version = NULL): ?object
+	protected function findAssociated(object $entity, string $field, $id, ?int $lock_mode = NULL, ?int $lock_version = NULL): ?object
 	{
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
 		$meta_data = $manager->getClassMetaData($class);
-		$mapping   = $meta_data->getAssociationMapping($field);
-		$target    = $mapping['targetEntity'] ?? NULL;
+		$mapping   = $meta_data->associationMappings[$field];
+		$target    = $mapping['targetEntity'];
 
 		if (!$class) {
 			throw new RuntimeException(sprintf(

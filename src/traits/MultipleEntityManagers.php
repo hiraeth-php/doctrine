@@ -30,7 +30,7 @@ trait MultipleEntityManagers
 
 
 	/**
-	 *
+	 * @return void
 	 */
 	public function configure()
 	{

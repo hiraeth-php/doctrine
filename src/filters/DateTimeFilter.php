@@ -6,6 +6,10 @@ use DateTime;
 
 class DateTimeFilter
 {
+	/**
+	 * @param mixed $value
+	 * @return DateTime|null
+	 */
 	public function __invoke($value)
 	{
 		if ($value) {

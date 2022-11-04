@@ -14,14 +14,19 @@ use Doctrine\Common\Collections;
 trait PropertyAccess
 {
 	/**
-	 *
+	 * @var array<string, mixed[]>
 	 */
 	protected static $reflections = [];
 
+
 	/**
 	 * Find the property of a field.
+	 *
+	 * @param string $name
+	 * @param bool $ignore_getter
+	 * @return mixed
 	 */
-	public function getProperty($entity, $name, $ignore_getter = FALSE)
+	public function getProperty(object $entity, $name, $ignore_getter = FALSE)
 	{
 		$value = NULL;
 
@@ -55,6 +60,12 @@ trait PropertyAccess
 	 *
 	 * If the property name is separated by dots, the entity will be resolved via reflection first
 	 * and the final property will be set on the entity traversed to.
+	 *
+	 * @param string $name
+	 * @param mixed $value
+	 * @param bool $ignore_setter
+	 * @return static
+
 	 */
 	public function setProperty(object $entity, string $name, $value, $ignore_setter = FALSE): self
 	{
@@ -113,7 +124,8 @@ trait PropertyAccess
 
 
 	/**
-	 *
+	 * @param string $name
+	 * @return ReflectionProperty
 	 */
 	protected function reflectProperty(object $entity, $name): ReflectionProperty
 	{
