@@ -9,8 +9,8 @@ use Hiraeth\Dbal\ConnectionRegistry;
 use Doctrine\ORM;
 use Doctrine\DBAL;
 use Doctrine\Persistence;
+use Doctrine\ORM\Configuration;
 use Doctrine\Common\Proxy\AbstractProxyFactory;
-use Doctrine\ORM\ORMSetup;
 
 use ReflectionClass;
 use RuntimeException;
@@ -262,7 +262,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$paths = array_merge($paths, $this->paths[$name]);
 			}
 
-			$driver    = ORMSetup::createDefaultAnnotationDriver($paths, $pool);
+			$driver    = $config->newDefaultAnnotationDriver($paths);
 			$proxy_ns  = $options['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
 			$proxy_dir = $options['proxy']['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
