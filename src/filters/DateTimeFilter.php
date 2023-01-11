@@ -22,7 +22,13 @@ class DateTimeFilter
 			}
 
 			try {
-				return new DateTime($value);
+				if ($value instanceof DateTime) {
+					return $value;
+
+				} else {
+					return new DateTime($value);
+
+				}
 
 			} catch (\Exception $e) {
 				//
