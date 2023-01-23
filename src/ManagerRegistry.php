@@ -268,7 +268,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 			if (!empty($options['unmanaged'])) {
 				$connection->getConfiguration()->setSchemaAssetsFilter(
-					function ($object) use ($options) {
+					function($object) use ($options) {
 						return !in_array($object, $options['unmanaged']);
 					}
 				);
@@ -293,7 +293,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			// the subscriber has a repository or entity manager re-injected
 			//
 
-			uasort($subscribers, function ($a, $b) {
+			uasort($subscribers, function($a, $b) {
 				return $a['priority'] - $b['priority'];
 			});
 
