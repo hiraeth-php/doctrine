@@ -137,12 +137,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	{
 		if (is_object($entity)) {
 			$class = get_class($entity);
-
 		} elseif (strpos($entity, ':') !== false) {
 			$parts = explode(':', $entity, 2);
 			$alias = $parts[0];
 			$class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
-
 		} else {
 			$class = $entity;
 		}
@@ -233,7 +231,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$options = $this->app->getConfig($collection, 'manager', []) + [
 				'cache'      => NULL,
 				'connection' => 'default',
-				'paths'      => []
+				'paths'      => [],
+				'unmanaged'  => [],
 			];
 
 			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
@@ -247,11 +246,9 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 				$config->setMetadataCache($pool);
 				$config->setQueryCache($pool);
-
 			} else {
 				$config->setAutoGenerateProxyClasses(TRUE);
 				$config->setAutoGenerateProxyClasses(AbstractProxyFactory::AUTOGENERATE_ALWAYS);
-
 			}
 
 			foreach ($options['paths'] as $path) {
@@ -262,11 +259,20 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				$paths = array_merge($paths, $this->paths[$name]);
 			}
 
-			$driver    = $config->newDefaultAnnotationDriver($paths);
-			$proxy_ns  = $options['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
-			$proxy_dir = $options['proxy']['directory'] ?? $this->app->getDirectory(
+			$connection = $this->getConnection($options['connection']);
+			$driver     = $config->newDefaultAnnotationDriver($paths);
+			$proxy_ns   = $options['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
+			$proxy_dir  = $options['proxy']['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
 			);
+
+			if (!empty($options['unmanaged'])) {
+				$connection->getConfiguration()->setSchemaAssetsFilter(
+					function ($object) use ($options) {
+						return !in_array($object, $options['unmanaged']);
+					}
+				);
+			}
 
 			if (!empty($options['walkers']['output'])) {
 				$config->setDefaultQueryHint(ORM\Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
@@ -280,17 +286,14 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$config->setProxyNamespace($proxy_ns);
 			$config->setMetadataDriverImpl($driver);
 
-			$this->managers[$name] = ORM\EntityManager::create(
-				$this->getConnection($options['connection']),
-				$config
-			);
+			$this->managers[$name] = ORM\EntityManager::create($connection, $config);
 
 			//
 			// Event Subscribers are added after to prevent cyclical dependencies in the event
 			// the subscriber has a repository or entity manager re-injected
 			//
 
-			uasort($subscribers, function($a, $b) {
+			uasort($subscribers, function ($a, $b) {
 				return $a['priority'] - $b['priority'];
 			});
 

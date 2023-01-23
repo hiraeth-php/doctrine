@@ -21,37 +21,47 @@
 	]
 
 	;
+	; Unmanaged tables/sequences.  Doctrine will not expect these to be managed and
+	; won't try to delete them.
 	;
+
+	unmanaged = [
+		"doctrine_migration_versions",
+		"migrations",
+	]
+
+	;
+	; Proxy generation information
 	;
 
 	[&.proxy]
 
 		;
-		;
+		; The namespace which proxies will use
 		;
 
 		namespace = DefaultProxies
 
 		;
-		;
+		; The place where proxies will be stored
 		;
 
 		directory = dir(storage/proxies/default)
 
 	;
-	;
+	; Walker information
 	;
 
 	[&.walkers]
 
 		;
-		;
+		; An output walker class
 		;
 
 		output = NULL
 
 		;
-		;
+		; Tree list of tree walker classes
 		;
 
 		tree = [
