@@ -26,8 +26,7 @@
 	;
 
 	unmanaged = [
-		"doctrine_migration_versions",
-		"migrations",
+
 	]
 
 	;
