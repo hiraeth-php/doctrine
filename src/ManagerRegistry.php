@@ -274,6 +274,14 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				);
 			}
 
+			foreach ($options['functions'] ?? [] as $type => $classes) {
+				foreach ($classes as $name => $class) {
+					$method = sprintf('addCustom%sFunction', $type);
+
+					$config->$method($name, $class);
+				}
+			}
+
 			if (!empty($options['walkers']['output'])) {
 				$config->setDefaultQueryHint(ORM\Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
 			}

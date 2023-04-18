@@ -232,6 +232,7 @@ abstract class AbstractRepository extends EntityRepository
 				return clone $builder;
 			}, TRUE, $cache);
 		}
+
 		return $this->collect(
 			$cache
 				? $builder->getQuery()

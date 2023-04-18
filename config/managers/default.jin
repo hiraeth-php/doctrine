@@ -30,6 +30,16 @@
 	]
 
 	;
+	; Add custom functions, each object key should be the type of custom function
+	; e.g. `DateTime`, which should reference an object of function name (key)
+	; to classes (values).
+	;
+
+	functions = {
+
+	}
+
+	;
 	; Proxy generation information
 	;
 
