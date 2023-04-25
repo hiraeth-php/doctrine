@@ -275,10 +275,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			}
 
 			foreach ($options['functions'] ?? [] as $type => $classes) {
-				foreach ($classes as $name => $class) {
+				foreach ($classes as $function => $class) {
 					$method = sprintf('addCustom%sFunction', $type);
 
-					$config->$method($name, $class);
+					$config->$method($function, $class);
 				}
 			}
 
