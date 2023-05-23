@@ -57,7 +57,7 @@ class Replicator
 					$entity,
 					$mapping['fieldName'],
 					$this->clone(
-						$this->getProperty($entity, $mapping['fieldName']),
+						$this->getProperty($entity, $mapping['fieldName'], TRUE),
 						$mapping['inversedBy']
 							? [$mapping['inversedBy'] => $entity]
 							: (
@@ -73,7 +73,7 @@ class Replicator
 			}
 
 			if ($mapping['type'] == ClassMetadataInfo::ONE_TO_MANY) {
-				$collection = clone $this->getProperty($entity, $mapping['fieldName']);
+				$collection = clone $this->getProperty($entity, $mapping['fieldName'], TRUE);
 
 				$this->setProperty(
 					$entity,

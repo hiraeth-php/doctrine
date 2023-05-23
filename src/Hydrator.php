@@ -65,11 +65,11 @@ class Hydrator
 			}
 
 			if (array_key_exists($field, $meta_data->embeddedClasses)) {
-				$embeddable = $this->getProperty($entity, $field);
+				$embeddable = $this->getProperty($entity, $field, TRUE);
 
 				if (!$embeddable) {
 					$embeddable = new $meta_data->embeddedClasses[$field]['class']();
-					$this->setProperty($entity, $field, $embeddable);
+					$this->setProperty($entity, $field, $embeddable, TRUE);
 				}
 
 				foreach ($value as $embedded_field => $embedded_value) {
@@ -89,7 +89,7 @@ class Hydrator
 					}
 				}
 
-				$this->setProperty($entity, $field, $value);
+				$this->setProperty($entity, $field, $value, TRUE);
 
 			} elseif (array_key_exists($field, $meta_data->associationMappings)) {
 				$this->fillAssociation($entity, $field, $value, $protect);
