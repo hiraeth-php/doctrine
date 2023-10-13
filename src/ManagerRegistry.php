@@ -281,7 +281,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			);
 
 			if (in_array($options['driver'], static::$annotationDrivers)) {
-				$driver = new AnnotationDriver($this->app->get($options['driver'], [$paths]));
+				$driver = new AnnotationDriver($this->app->get($options['driver']), [$paths]);
 			} else {
 				$driver = $this->app->get($options['driver'], [$paths]);
 			}
