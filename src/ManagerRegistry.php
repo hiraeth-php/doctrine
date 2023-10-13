@@ -10,8 +10,12 @@ use Doctrine\ORM;
 use Doctrine\DBAL;
 use Doctrine\Persistence;
 use Doctrine\ORM\Configuration;
-use Doctrine\Common\Proxy\AbstractProxyFactory;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\Common\Proxy\AbstractProxyFactory;
+use Doctrine\Common\Annotations\AnnotationReader;
+use Doctrine\Common\Annotations\SimpleAnnotationReader;
+use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
+
 use ReflectionClass;
 use RuntimeException;
 use InvalidArgumentException;
@@ -21,6 +25,16 @@ use InvalidArgumentException;
  */
 class ManagerRegistry implements Persistence\ManagerRegistry
 {
+	/**
+	 * A list of older readers for driver implementation
+	 *
+	 * @var array
+	 */
+	static protected $annotationDrivers = [
+		SimpleAnnotationReader::class,
+		AnnotationReader::class
+	];
+
 	/**
 	 * @var Hiraeth\Application
 	 */
@@ -230,9 +244,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 			$options = $this->app->getConfig($collection, 'manager', []) + [
 				'cache'      => NULL,
+				'driver'     => SimpleAnnotationReader::class,
 				'connection' => 'default',
-				'paths'      => [],
 				'unmanaged'  => [],
+				'paths'      => [],
 			];
 
 			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
@@ -260,11 +275,16 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			}
 
 			$connection = $this->getConnection($options['connection']);
-			$driver     = $config->newDefaultAnnotationDriver($paths);
 			$proxy_ns   = $options['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
 			$proxy_dir  = $options['proxy']['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
 			);
+
+			if (in_array($options['driver'], static::$annotationDrivers)) {
+				$driver = new AnnotationDriver($this->app->get($options['driver'], [$paths]));
+			} else {
+				$driver = $this->app->get($options['driver'], [$paths]);
+			}
 
 			if (!empty($options['unmanaged'])) {
 				$connection->getConfiguration()->setSchemaAssetsFilter(
