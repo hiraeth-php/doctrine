@@ -2,48 +2,37 @@
 
 namespace Hiraeth\Doctrine;
 
-use InvalidArgumentException;
-
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\Common\Collections;
-use Doctrine\Persistence\Mapping\ClassMetadata;
 
 /**
- * @extends EntityRepository<AbstractEntity>
+ * @template Entity of object
+ * @extends EntityRepository<Entity>
  */
 abstract class AbstractRepository extends EntityRepository
 {
 	/**
-	 * @var class-string<AbstractEntity>
+	 * @var class-string<Collection<int, Entity>>
 	 */
-	protected static $entity;
-
+	static protected $collection = Collection::class;
 
 	/**
-	 * @var class-string<Collections\Collection>
+	 * @var class-string<Entity>
 	 */
-	protected static $collection = Collection::class;
-
+	static protected $entity;
 
 	/**
 	 * @var array<string, string>
 	 */
-	protected static $order = [];
-
+	static protected $order = [];
 
 	/**
 	 * @var Hydrator
 	 */
 	protected $hydrator;
-
-
-	/**
-	 * @var ClassMetadata<AbstractEntity>
-	 */
-	protected $metaData;
 
 
 	/**
@@ -59,60 +48,79 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @var Replicator
+	 * @var Replicator<Entity>
 	 */
 	protected $replicator;
 
 
 	/**
 	 *
+	 * @param ManagerRegistry $registry
+	 * @param Hydrator $hydrator
+	 * @param Replicator<Entity> $replicator
 	 */
 	public function __construct(ManagerRegistry $registry, Hydrator $hydrator, Replicator $replicator)
 	{
+
 		$this->registry   = $registry;
 		$this->hydrator   = $hydrator;
 		$this->replicator = $replicator;
 		$this->manager    = $this->registry->getManagerForClass(static::$entity);
-		$this->metaData   = $this->manager->getClassMetaData(static::$entity);
 
-		parent::__construct($this->manager, $this->metaData);
+		parent::__construct($this->manager, $this->manager->getClassMetadata(static::$entity));
 	}
 
 
 	/**
-	 * @param AbstractEntity $entity
-	 * @return AbstractRepository
+	 * Attach an entity to the repository.
+	 *
+	 * Using this method you can attach/re-attach a detached entity to the repository by merging
+	 * it into the existing entity manager state.
+	 *
+	 * @param Entity $entity
+	 * @return self<Entity>
 	 */
-	public function attach($entity): AbstractRepository
+	public function attach(object $entity): AbstractRepository
 	{
-		$this->getEntityManager()->merge($entity);
+		$this->manager->merge($entity);
 
 		return $this;
 	}
 
 
 	/**
+	 * Create a new entity.
+	 *
 	 * @param array<string, mixed> $data
 	 * @param bool $protect
-	 * @return AbstractEntity
+	 * @return Entity
 	 */
-	public function create(array $data = array(), bool $protect = TRUE): AbstractEntity
+	public function create(array $data = array(), bool $protect = TRUE): object
 	{
 
 		$entity = new static::$entity;
 
-		$this->update($entity, $data, $protect);
+		if (!empty($data)) {
+			$this->update($entity, $data, $protect);
+		}
 
 		return $entity;
 	}
 
 
 	/**
-	 * @param AbstractEntity $entity
+	 * Detach an entity from the repository.
+	 *
+	 * A detached entity allows you to make changes without persisting them to the database.  If
+	 * it is determined that you do want to persist the changes, use the attach() method to
+	 * merge it back into the repository.
+	 *
+	 * @param Entity $entity The entity to detach.
+	 * @return self<Entity> The repository instance for method chaining.
 	 */
-	public function detach($entity): AbstractRepository
+	public function detach(object $entity): self
 	{
-		$this->getEntityManager()->detach($entity);
+		$this->manager->detach($entity);
 
 		return $this;
 	}
@@ -120,10 +128,10 @@ abstract class AbstractRepository extends EntityRepository
 
 	/**
 	 * {@inheritDoc}
-
-	 * @return AbstractEntity|NULL
+	 *
+	 * @return Entity|null
 	 */
-	public function find($id, $lock_mode = NULL, $lock_version = NULL): ?AbstractEntity
+	public function find($id, $lock_mode = NULL, $lock_version = NULL): ?object
 	{
 		if ($id === NULL) {
 			return NULL;
@@ -140,12 +148,13 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * Standard findAll with the option to add an orderBy
-	 *
 	 * {@inheritDoc}
 	 *
+	 * This overload adds the ability to order the results and also returns the results as a
+	 * collection instead of an array.
+	 *
 	 * @param array<string>|null $order_by The order by clause to add
-	 * @return Collections\Collection<int, AbstractEntity>
+	 * @return Collections\Collection<int, Entity>
 	 */
 	public function findAll(?array $order_by = []): Collections\Collection
 	{
@@ -156,7 +165,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 *
-	 * @return Collections\Collection<int, AbstractEntity>
+	 * @return Collections\Collection<int, Entity>
 	 */
 	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null): Collections\Collection
 	{
@@ -207,17 +216,20 @@ abstract class AbstractRepository extends EntityRepository
 
 	/**
 	 * {@inheritDoc}
-	 * @return AbstractEntity|NULL
+	 *
+	 * @return Entity|null
 	 */
-	public function findOneBy(array $criteria, ?array $order_by = []): ?AbstractEntity
+	public function findOneBy(array $criteria, ?array $order_by = []): ?object
 	{
 		return $this->findBy($criteria, $order_by, 1)->first() ?: NULL;
 	}
 
 
 	/**
-	 * @param callable|string|array<mixed> $build_callback
-	 * @return Collections\Collection<int, AbstractEntity>
+	 * Query the repository using a build callback.
+	 *
+	 * @param callable|string|array<callable|string> $build_callback
+	 * @return Collections\Collection<int, Entity> The collection of entities matching the query builder.
 	 */
 	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collections\Collection
 	{
@@ -242,9 +254,12 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @param callable|string|array<mixed> $build_callback
+	 * Count the number of entities in a repository using a build callback.
+	 *
+	 * @param callable|string|array<callable|string> $build_callback
+	 * @return mixed The number of entities matching the query builder.
 	 */
-	public function queryCount($build_callback, bool $non_limited = FALSE, bool $cache = TRUE): int
+	public function queryCount($build_callback, bool $non_limited = FALSE, bool $cache = TRUE)
 	{
 		$builder = $this->build($build_callback);
 
@@ -263,19 +278,24 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @param AbstractEntity $entity
+	 * Remove an entity from the repository.
+	 *
+	 * @param Entity $entity The entity to remove.
+	 * @param bool $flush Whether or not to flush the entity manager immediately.
+	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
+	 * @return self<Entity> The repository instance for method chaining.
 	 */
-	public function remove($entity, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
+	public function remove(object $entity, bool $flush = FALSE, bool $recompute = FALSE)
 	{
-		$this->getEntityManager()->remove($entity);
+		$this->manager->remove($entity);
 
 		if ($flush) {
-			$this->getEntityManager()->flush();
+			$this->manager->flush();
 		}
 
 		if ($recompute) {
-			$this->getEntityManager()->getUnitOfWork()->computeChangeSet(
-				$this->getEntityManager()->getClassMetadata(get_class($entity)),
+			$this->manager->getUnitOfWork()->computeChangeSet(
+				$this->manager->getClassMetadata(get_class($entity)),
 				$entity
 			);
 		}
@@ -285,29 +305,36 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @param AbstractEntity $entity
-	 * @return AbstractEntity
+	 * Replicate an entity using the replicator which will do smart deep cloning.
+	 *
+	 * @param Entity $entity The entity to replicate.
+	 * @return Entity|null The replicated entity.
 	 */
-	public function replicate($entity)
+	public function replicate(object $entity): ?object
 	{
 		return $this->replicator->clone($entity);
 	}
 
 
 	/**
-	 * @param AbstractEntity $entity
+	 * Store an entity in the repository.
+	 *
+	 * @param Entity $entity The entity to store.
+	 * @param bool $flush Whether or not to flush the entity manager immediately.
+	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
+	 * @return self<Entity> The repository instance for method chaining.
 	 */
 	public function store($entity, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
 	{
-		$this->getEntityManager()->persist($entity);
+		$this->manager->persist($entity);
 
 		if ($flush) {
-			$this->getEntityManager()->flush();
+			$this->manager->flush();
 		}
 
 		if ($recompute) {
-			$this->getEntityManager()->getUnitOfWork()->computeChangeSet(
-				$this->getEntityManager()->getClassMetadata(get_class($entity)),
+			$this->manager->getUnitOfWork()->computeChangeSet(
+				$this->manager->getClassMetadata(get_class($entity)),
 				$entity
 			);
 		}
@@ -317,10 +344,11 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @param AbstractEntity $entity
+	 * @param Entity $entity
 	 * @param array<string, mixed> $data
+	 * @return self<Entity> The repository instance for method chaining.
 	 */
-	public function update($entity, array $data, bool $protect = TRUE): AbstractRepository
+	public function update(object $entity, array $data, bool $protect = TRUE): AbstractRepository
 	{
 		$this->hydrator->fill($entity, $data, $protect);
 
@@ -333,7 +361,7 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	protected function build($build_callback): QueryBuilder
 	{
-		$builder = $this->getEntityManager()->createQueryBuilder();
+		$builder = $this->manager->createQueryBuilder();
 
 		$builder
 			-> select('DISTINCT this')
@@ -364,7 +392,7 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @return Collections\Collection<int, AbstractEntity>
+	 * @return Collections\Collection<int, Entity>
 	 */
 	protected function collect(Query ...$queries): Collections\Collection
 	{
@@ -383,6 +411,7 @@ abstract class AbstractRepository extends EntityRepository
 
 	/**
 	 * @param array<int, string> $paths
+	 * @return QueryBuilder
 	 */
 	protected function join(QueryBuilder $builder, array $paths = array()): QueryBuilder
 	{
@@ -417,6 +446,7 @@ abstract class AbstractRepository extends EntityRepository
 
 	/**
 	 * @param array<string, string> $order
+	 * @return QueryBuilder
 	 */
 	protected function order(QueryBuilder $builder, array $order = array()): QueryBuilder
 	{

@@ -11,7 +11,7 @@ use Doctrine\DBAL;
 use Doctrine\Persistence;
 use Doctrine\ORM\Configuration;
 use Doctrine\Common\Proxy\AbstractProxyFactory;
-
+use Doctrine\ORM\EntityRepository;
 use ReflectionClass;
 use RuntimeException;
 use InvalidArgumentException;
@@ -365,12 +365,12 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 		return array_combine(
 			array_keys($this->managerConfigs),
 			array_map(
-				function ($collection) {
+				function ($collection): string {
 					return $this->app->getConfig($collection, 'manager.name', 'Unknown  Name');
 				},
 				$this->managerConfigs
 			)
-		);
+		) ?: array();
 	}
 
 

@@ -5,7 +5,7 @@ namespace Hiraeth\Doctrine;
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
 
 /**
- *
+ * @template Entity of object
  */
 class Replicator
 {
@@ -27,12 +27,12 @@ class Replicator
 
 
 	/**
-	 * @param mixed $entity
+	 * @param Entity|null $entity
 	 * @param array<string, mixed> $data
 	 * @param array<string|int, string> $source
-	 * @return AbstractEntity|null
+	 * @return Entity|null
 	 */
-	public function clone($entity, array $data = array(), array $source = array())
+	public function clone(?object $entity, array $data = array(), array $source = array()): ?object
 	{
 		if (is_null($entity)) {
 			return NULL;

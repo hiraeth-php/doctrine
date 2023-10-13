@@ -46,7 +46,11 @@ class Hydrator
 
 
 	/**
+	 * Fill and object
+	 *
+	 * @param object $entity
 	 * @param array<string, mixed> $data
+	 * @return self The hydrator instance for method chaining.
 	 */
 	public function fill(object $entity, array $data, bool $protect = TRUE): Hydrator
 	{
@@ -60,8 +64,12 @@ class Hydrator
 		}
 
 		foreach ($data as $field => $value) {
-			if ($protect && array_intersect(['*', $field], $entity::$_protect ?? ['*'])) {
-				continue;
+			if ($protect && isset($entity::$_protect)) {
+				$protected = array_intersect(['*', $field], $entity::$_protect ?? ['*']);
+
+				if ($protected) {
+					continue;
+				}
 			}
 
 			if (array_key_exists($field, $meta_data->associationMappings)) {
@@ -105,10 +113,11 @@ class Hydrator
 
 
 	/**
+	 * @param object $entity
 	 * @param mixed $value
 	 * @return self
 	 */
-	protected function fillAssociation(object $entity, string $field, $value, bool $protect = TRUE)
+	protected function fillAssociation(object $entity, string $field, $value, bool $protect = TRUE): self
 	{
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
@@ -145,6 +154,7 @@ class Hydrator
 
 
 	/**
+	 * @param object $entity
 	 * @param array<mixed> $values
 	 * @return self
 	 */
@@ -218,6 +228,7 @@ class Hydrator
 
 
 	/**
+	 * @param object $entity
 	 * @param mixed $value
 	 * @return self
 	 */
@@ -276,7 +287,7 @@ class Hydrator
 	/**
 	 * @param mixed $id
 	 * @param 0|1|2|4|null $lock_mode
-	 * @return object
+	 * @return object|null
 	 */
 	protected function findAssociated(object $entity, string $field, $id, ?int $lock_mode = NULL, ?int $lock_version = NULL): ?object
 	{
@@ -294,7 +305,7 @@ class Hydrator
 		}
 
 		//
-		// Short circuit logic.  If we're not an array and we're an empty vaulue or existing
+		// Short circuit logic.  If we're not an array and we're an empty value or existing
 		// instance, we can go home early.
 		//
 

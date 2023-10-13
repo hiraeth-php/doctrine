@@ -3,18 +3,20 @@
 namespace Hiraeth\Doctrine;
 
 use InvalidArgumentException;
-use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections;
 
 /**
- * @extends ArrayCollection<int, mixed>
+ * @template TKey of array-key
+ * @template T
+ * @extends Collections\ArrayCollection<TKey, T>
  */
-class Collection extends ArrayCollection
+class Collection extends Collections\ArrayCollection
 {
 	use PropertyAccess;
 
 	/**
 	 * @param array<string, string> $config
-	 * @return self
+	 * @return Collection<TKey, T>
 	 */
 	public function order(array $config): Collection
 	{
