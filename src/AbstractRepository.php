@@ -182,7 +182,7 @@ abstract class AbstractRepository extends EntityRepository
 	 *
 	 * @return Collections\Collection<int, Entity>
 	 */
-	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null): Collections\Collection
+	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null, ?int &$nonlimited_count = NULL): Collections\Collection
 	{
 		if (!is_null($order_by)) {
 			$order_by = $order_by + static::$order;
@@ -219,7 +219,7 @@ abstract class AbstractRepository extends EntityRepository
 			}
 
 			return $builder;
-		});
+		}, $nonlimited_count);
 	}
 
 
