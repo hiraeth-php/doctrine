@@ -140,7 +140,22 @@ abstract class AbstractRepository extends EntityRepository
 		if (is_array($id)) {
 			$meta_data   = $this->getClassMetadata();
 			$field_names = $meta_data->getIdentifierFieldNames();
-			$id          = array_intersect_key($id, array_flip($field_names));
+			$identity    = array_intersect_key($id, array_flip($field_names));
+
+			if (count($identity) == count($field_names)) {
+				$id = $identity;
+			}
+
+			$result = $this->findBy($id, [], 2);
+
+			if (count($result) > 1) {
+				throw new \InvalidArgumentException(sprintf(
+					'ID argument with keys "%s" yields more than one result',
+					join(', ', array_keys($id))
+				));
+			}
+
+			return $result->first();
 		}
 
 		return parent::find($id, $lock_mode, $lock_version);
@@ -174,20 +189,14 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		return $this->query(function ($builder) use ($criteria, $order_by, $limit, $offset) {
-			$builder = $this->join($builder, array_keys($criteria));
-			$param   = 1;
+			$param    = 1;
+			$criteria = $this->join($builder, $criteria);
+			$order_by = $this->order($builder, $order_by);
 
 			foreach ($criteria as $key => $value) {
-				if (strpos($key, '.') === FALSE) {
-					$key = sprintf('this.%s', $key);
-				}
-
-				if ($value instanceof Collections\Collection) {
-					$value = $value->getValues();
-				}
-
 				if (is_null($value)) {
 					$expr = $builder->expr()->isNull($key);
+
 				} else {
 					if (is_array($value)) {
 						$expr = $builder->expr()->in($key, '?' . $param);
@@ -209,7 +218,7 @@ abstract class AbstractRepository extends EntityRepository
 				$builder->setFirstResult($offset);
 			}
 
-			return $this->order($builder, $order_by);
+			return $builder;
 		});
 	}
 
@@ -236,7 +245,7 @@ abstract class AbstractRepository extends EntityRepository
 		$builder = $this->build($build_callback);
 
 		if (in_array('DISTINCT this', $builder->getDQLPart('select')[0]->getParts())) {
-			$builder = $this->order($builder, static::$order);
+			$this->order($builder, static::$order);
 		}
 
 		if ($nonlimited_count === 0) {
@@ -410,53 +419,66 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @param array<int, string> $paths
-	 * @return QueryBuilder
+	 * @param QueryBuilder $builder
+	 * @param array<int, mixed> $data
+	 * @return array<mixed>
 	 */
-	protected function join(QueryBuilder $builder, array $paths = array()): QueryBuilder
+	protected function join(QueryBuilder $builder, array $data = array()): array
 	{
-		foreach ($paths as $path) {
-			if (strpos($path, '.') === FALSE) {
-				continue;
-			}
+		$result    = array();
+		$path_data = $this->pathize($data);
 
-			$alias = explode('.', $path, 2)[0];
-			$joins = array_filter(
-				$builder->getDQLPart('join'),
-				function($join_sql) use ($alias) {
-					foreach ($join_sql as $join) {
-						if (explode('.', $join->getJoin(), 2)[1] == $alias) {
-							return TRUE;
-						}
+		foreach ($path_data as $path => $value) {
+			$parts = explode('.', $path);
+			$path  = implode('.', array_slice($parts, -2));
+
+			if (count($parts) > 2) {
+				for ($x = 0; $x < count($parts); $x++) {
+					if (!isset($parts[$x+2])) {
+						break;
 					}
 
-					return FALSE;
-				}
-			);
+					$alias = $parts[$x+1];
+					$joins = array_filter(
+						$builder->getDQLPart('join'),
+						function($join_sql) use ($alias) {
+							foreach ($join_sql as $join) {
+								if (explode('.', $join->getJoin(), 2)[1] == $alias) {
+									return TRUE;
+								}
+							}
 
-			if (!count($joins)) {
-				$builder->leftJoin(sprintf('this.%s', $alias), $alias, 'ON');
-				$builder->addSelect($alias);
+							return FALSE;
+						}
+					);
+
+					if (!count($joins)) {
+						$builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
+						$builder->addSelect($alias);
+					}
+				}
 			}
+
+			$result[$path] = $value;
 		}
 
-		return $builder;
+		return $result;
 	}
 
 
 	/**
+	 * @param QueryBuilder $builder
 	 * @param array<string, string> $order
-	 * @return QueryBuilder
+	 * @return array<string>
 	 */
-	protected function order(QueryBuilder $builder, array $order = array()): QueryBuilder
+	protected function order(QueryBuilder $builder, array $order = array()): array
 	{
-		$builder = $this->join($builder, array_keys($order));
+		$result = array();
+		$order  = $this->join($builder, $order);
 
-		foreach ($order as $path => $dir) {
-			if (strpos($path, '.') === FALSE) {
-				$path = sprintf('this.%s', $path);
-			}
-
+		foreach ($order as $path => $value) {
+			$parts  = explode('.', $path);
+			$path   = implode('.', array_slice($parts, -2));
 			$orders = array_filter(
 				$builder->getDQLPart('orderBy'),
 				function($order_sql) use ($path) {
@@ -471,10 +493,43 @@ abstract class AbstractRepository extends EntityRepository
 			);
 
 			if (!count($orders)) {
-				$builder->addOrderBy($path, $dir);
+				$builder->addOrderBy($path, $value);
 			}
+
+			$result[$path] = $value;
 		}
 
-		return $builder;
+		return $result;
+	}
+
+
+	/**
+	 *
+	 */
+	public function pathize(array $data, $prefix = 'this'): array
+	{
+		$result = array();
+
+		foreach ($data as $key => $value) {
+			if (strpos($key, $prefix . '.') !== 0) {
+				$key = $prefix . '.' . $key;
+			}
+
+			if (is_array($value)) {
+				if (!is_numeric(array_key_first($value))) {
+					$result = array_merge($result, $this->pathize($value, $key));
+
+					continue;
+				}
+			}
+
+			if ($value instanceof Collections\Collection) {
+				$value = $value->getValues();
+			}
+
+			$result[$key] = $value;
+		}
+
+		return $result;
 	}
 }

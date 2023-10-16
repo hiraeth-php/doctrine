@@ -14,7 +14,6 @@ use Doctrine\ORM\EntityRepository;
 use Doctrine\Common\Proxy\AbstractProxyFactory;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\SimpleAnnotationReader;
-use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
 
 use ReflectionClass;
@@ -262,11 +261,9 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 				$config->setMetadataCache($pool);
 				$config->setQueryCache($pool);
-
 			} else {
 				$config->setAutoGenerateProxyClasses(TRUE);
 				$config->setAutoGenerateProxyClasses(AbstractProxyFactory::AUTOGENERATE_ALWAYS);
-
 			}
 
 			foreach ($options['paths'] as $path) {
@@ -284,16 +281,9 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			);
 
 			if (in_array($options['driver'], static::$annotationDrivers)) {
-				$reader  = $this->app->get($options['driver']);
-				$driver = new AnnotationDriver($reader, $paths);
-
-				if ($reader instanceof SimpleAnnotationReader) {
-					$reader->addNamespace('Doctrine\ORM\Mapping');
-				}
-
+				$driver = new AnnotationDriver($this->app->get($options['driver']), [$paths]);
 			} else {
-				$driver = $this->app->get($options['driver'], ['paths' => $paths]);
-
+				$driver = $this->app->get($options['driver'], [$paths]);
 			}
 
 			if (!empty($options['unmanaged'])) {
@@ -324,7 +314,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$config->setProxyNamespace($proxy_ns);
 			$config->setMetadataDriverImpl($driver);
 
-			$this->managers[$name] = new EntityManager($connection, $config);
+			$this->managers[$name] = ORM\EntityManager::create($connection, $config);
 
 			//
 			// Event Subscribers are added after to prevent cyclical dependencies in the event
