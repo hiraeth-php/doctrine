@@ -281,13 +281,18 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			);
 
 			if (in_array($options['driver'], static::$annotationDrivers)) {
-				$driver = new AnnotationDriver($this->app->get($options['driver']), [
-					'paths' => $paths
-				]);
+				$reader = $this->app->get($options['driver']);
+				$driver = new AnnotationDriver($reader, $paths);
+
+				if ($reader instanceof SimpleAnnotationReader) {
+					$reader->addNamespace('Doctrine\ORM\Mapping');
+				}
+
 			} else {
 				$driver = $this->app->get($options['driver'], [
 					'paths' => $paths
 				]);
+
 			}
 
 			if (!empty($options['unmanaged'])) {
@@ -318,7 +323,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			$config->setProxyNamespace($proxy_ns);
 			$config->setMetadataDriverImpl($driver);
 
-			$this->managers[$name] = ORM\EntityManager::create($connection, $config);
+			$this->managers[$name] = new ORM\EntityManager($connection, $config);
 
 			//
 			// Event Subscribers are added after to prevent cyclical dependencies in the event
