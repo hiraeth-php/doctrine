@@ -289,9 +289,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				}
 
 			} else {
-				$driver = $this->app->get($options['driver'], [
-					'paths' => $paths
-				]);
+				$driver = $this->app->get($options['driver'], [$paths]);
 
 			}
 
