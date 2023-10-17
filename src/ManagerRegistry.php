@@ -281,9 +281,13 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 			);
 
 			if (in_array($options['driver'], static::$annotationDrivers)) {
-				$driver = new AnnotationDriver($this->app->get($options['driver']), $paths);
+				$driver = new AnnotationDriver($this->app->get($options['driver']), [
+					'paths' => $paths
+				]);
 			} else {
-				$driver = $this->app->get($options['driver'], [$paths]);
+				$driver = $this->app->get($options['driver'], [
+					'paths' => $paths
+				]);
 			}
 
 			if (!empty($options['unmanaged'])) {
