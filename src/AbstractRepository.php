@@ -270,10 +270,17 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function queryCount($build_callback, bool $non_limited = FALSE, bool $cache = TRUE)
 	{
-		$builder = $this->build($build_callback);
+		$builder    = $this->build($build_callback);
+		$meta_data  = $this->getClassMetadata();
+		$identifier = $meta_data->getIdentifierFieldNames();
 
-		$builder->select('count(DISTINCT this)');
 		$builder->resetDQLPart('orderBy');
+		$builder->select($builder->expr()->countDistinct(...array_map(
+			function($field) {
+				return sprintf('this.%s', $field);
+			},
+			$identifier
+		)));
 
 		if ($non_limited) {
 			$builder->setMaxResults(NULL);
