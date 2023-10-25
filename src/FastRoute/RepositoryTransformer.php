@@ -1,6 +1,6 @@
 <?php
 
-namespace Hiraeth\Doctrine;
+namespace Hiraeth\Doctrine\FastRoute;
 
 use Hiraeth\FastRoute;
 use Hiraeth\Application;
