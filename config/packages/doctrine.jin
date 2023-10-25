@@ -90,5 +90,5 @@
 	;
 
 	transformers = {
-		"r": "API\FastRoute\RepositoryTransformer"
+		"r": "Hiraeth\Doctrine\FastRoute\RepositoryTransformer"
 	}
