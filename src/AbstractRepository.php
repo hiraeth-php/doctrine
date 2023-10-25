@@ -133,32 +133,34 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function find($id, $lock_mode = NULL, $lock_version = NULL): ?object
 	{
-		if ($id === NULL) {
-			return NULL;
-		}
-
-		if (is_array($id)) {
-			$meta_data   = $this->getClassMetadata();
-			$field_names = $meta_data->getIdentifierFieldNames();
-			$identity    = array_intersect_key($id, array_flip($field_names));
-
-			if (count($identity) == count($field_names)) {
-				$id = $identity;
+		if (!is_null($id)) {
+			if (is_scalar($id)) {
+				return parent::find($id, $lock_mode, $lock_version);
 			}
 
-			$result = $this->findBy($id, [], 2);
+			if (is_array($id) && array_keys($id)) {
+				$meta_data   = $this->getClassMetadata();
+				$field_names = $meta_data->getIdentifierFieldNames();
+				$identity    = array_intersect_key($id, array_flip($field_names));
 
-			if (count($result) > 1) {
-				throw new \InvalidArgumentException(sprintf(
-					'ID argument with keys "%s" yields more than one result',
-					join(', ', array_keys($id))
-				));
+				if (count($identity) == count($field_names)) {
+					$id = $identity;
+				}
+
+				$result = $this->findBy($id, [], 2);
+
+				if (count($result) > 1) {
+					throw new \InvalidArgumentException(sprintf(
+						'ID argument with keys "%s" yields more than one result',
+						join(', ', array_keys($id))
+					));
+				}
+
+				return $result->first();
 			}
-
-			return $result->first();
 		}
 
-		return parent::find($id, $lock_mode, $lock_version);
+		return NULL;
 	}
 
 
