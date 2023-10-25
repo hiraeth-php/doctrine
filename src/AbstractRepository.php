@@ -194,20 +194,32 @@ abstract class AbstractRepository extends EntityRepository
 			$order_by = $this->order($builder, $order_by);
 
 			foreach ($criteria as $key => $value) {
-				if (is_null($value)) {
-					$expr = $builder->expr()->isNull($key);
+				$parts  = array_diff(explode('.', $key), ['this']);
+				$method = sprintf('filter%s', implode(array_map('ucfirst', $parts)));
 
-				} else {
-					if (is_array($value)) {
-						$expr = $builder->expr()->in($key, '?' . $param);
-					} else {
-						$expr = $builder->expr()->eq($key, '?' . $param);
+				if (method_exists($this, $method)) {
+					if ($value === '' || is_array($value) && !array_filter($value)) {
+						continue;
 					}
 
-					$builder->setParameter($param++, $value);
-				}
+					$this->$method($builder, $value);
 
-				$builder->andWhere($expr);
+				} else {
+					if (is_null($value)) {
+						$expr = $builder->expr()->isNull($key);
+
+					} else {
+						if (is_array($value)) {
+							$expr = $builder->expr()->in($key, '?' . $param);
+						} else {
+							$expr = $builder->expr()->eq($key, '?' . $param);
+						}
+
+						$builder->setParameter($param++, $value);
+					}
+
+					$builder->andWhere($expr);
+				}
 			}
 
 			if (!is_null($limit)) {
@@ -333,18 +345,20 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * Store an entity in the repository.
+	 * Store an entity in the repository by persisting it, or flush all changes
 	 *
-	 * @param Entity $entity The entity to store.
+	 * @param Entity|null $entity The entity to store.
 	 * @param bool $flush Whether or not to flush the entity manager immediately.
 	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
 	 * @return self<Entity> The repository instance for method chaining.
 	 */
-	public function store($entity, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
+	public function store(?object $entity = NULL, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
 	{
-		$this->manager->persist($entity);
+		if ($entity) {
+			$this->manager->persist($entity);
+		}
 
-		if ($flush) {
+		if ($flush || func_num_args() === 0) {
 			$this->manager->flush();
 		}
 
@@ -513,7 +527,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 *
 	 */
-	public function pathize(array $data, $prefix = 'this'): array
+	protected function pathize(array $data, $prefix = 'this'): array
 	{
 		$result = array();
 

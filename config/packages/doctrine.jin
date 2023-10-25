@@ -72,3 +72,23 @@
 	helpers = {
 		"em": "Doctrine\ORM\Tools\Console\Helper\EntityManagerHelper"
 	}
+
+[fastroute]
+
+	;
+	; Patterns are strings which map to regular expressions for use with fastroute.  You can define
+	; the pattern as the key and the regular expression it maps to as the value.
+	;
+
+	patterns = {
+		"r": "[a-z][a-z0-9-/]+"
+	}
+
+	;
+	; Transformers are used to transform matching URL parameters between their URL form and their
+	; argument form.
+	;
+
+	transformers = {
+		"r": "API\FastRoute\RepositoryTransformer"
+	}
