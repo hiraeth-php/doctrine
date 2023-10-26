@@ -257,8 +257,10 @@ abstract class AbstractRepository extends EntityRepository
 	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
 	{
 		$builder = $this->build($build_callback);
+		$selects = $builder->getDQLPart('select');
+		$orders  = $builder->getDQLPart('orderBy');
 
-		if (!count($builder->getDQLPart('orderBy'))) {
+		if (!count($orders) && count($selects) == 1 && (string) $selects[0] == 'DISTINCT this') {
 			$this->order($builder, static::$order);
 		}
 
