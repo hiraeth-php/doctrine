@@ -171,9 +171,9 @@ abstract class AbstractRepository extends EntityRepository
 	 * collection instead of an array.
 	 *
 	 * @param array<string>|null $order_by The order by clause to add
-	 * @return Collections\Collection<int, Entity>
+	 * @return Collection<int, Entity>
 	 */
-	public function findAll(?array $order_by = []): Collections\Collection
+	public function findAll(?array $order_by = []): Collection
 	{
 		return $this->findBy([], $order_by);
 	}
@@ -182,9 +182,9 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 *
-	 * @return Collections\Collection<int, Entity>
+	 * @return Collection<int, Entity>
 	 */
-	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null, ?int &$nonlimited_count = NULL): Collections\Collection
+	public function findBy(array $criteria, ?array $order_by = [], $limit = null, $offset = null, ?int &$nonlimited_count = NULL): Collection
 	{
 		if (!is_null($order_by)) {
 			$order_by = $order_by + static::$order;
@@ -252,13 +252,13 @@ abstract class AbstractRepository extends EntityRepository
 	 * Query the repository using a build callback.
 	 *
 	 * @param callable|string|array<callable|string> $build_callback
-	 * @return Collections\Collection<int, Entity> The collection of entities matching the query builder.
+	 * @return Collection<int, Entity> The collection of entities matching the query builder.
 	 */
-	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collections\Collection
+	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
 	{
 		$builder = $this->build($build_callback);
 
-		if (in_array('DISTINCT this', $builder->getDQLPart('select')[0]->getParts())) {
+		if (!count($builder->getDQLPart('orderBy'))) {
 			$this->order($builder, static::$order);
 		}
 
@@ -396,8 +396,8 @@ abstract class AbstractRepository extends EntityRepository
 		$builder = $this->manager->createQueryBuilder();
 
 		$builder
-			-> select('DISTINCT this')
-			-> from(static::$entity, 'this')
+			->select('DISTINCT this')
+			->from(static::$entity, 'this')
 		;
 
 		if (is_callable($build_callback)) {
@@ -424,9 +424,9 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @return Collections\Collection<int, Entity>
+	 * @return Collection<int, Entity>
 	 */
-	protected function collect(Query ...$queries): Collections\Collection
+	protected function collect(Query ...$queries): Collection
 	{
 		$collection = new static::$collection([]);
 
@@ -462,10 +462,26 @@ abstract class AbstractRepository extends EntityRepository
 					}
 
 					$alias = $parts[$x+1];
+
+					$items = array_filter(
+						$builder->getDQLPart('select'),
+						function($select_dql) use ($alias) {
+							if ($select_dql->getParts()[0] == $alias) {
+								return TRUE;
+							}
+
+							return FALSE;
+						}
+					);
+
+					if (!count($items)) {
+						$builder->addSelect($alias);
+					}
+
 					$joins = array_filter(
 						$builder->getDQLPart('join'),
-						function($join_sql) use ($alias) {
-							foreach ($join_sql as $join) {
+						function($join_dql) use ($alias) {
+							foreach ($join_dql as $join) {
 								if (explode('.', $join->getJoin(), 2)[1] == $alias) {
 									return TRUE;
 								}
@@ -477,7 +493,6 @@ abstract class AbstractRepository extends EntityRepository
 
 					if (!count($joins)) {
 						$builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
-						$builder->addSelect($alias);
 					}
 				}
 			}
