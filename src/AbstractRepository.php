@@ -258,9 +258,8 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		$builder = $this->build($build_callback);
 		$selects = $builder->getDQLPart('select');
-		$orders  = $builder->getDQLPart('orderBy');
 
-		if (!count($orders) && count($selects) == 1 && (string) $selects[0] == 'DISTINCT this') {
+		if ((string) $selects[0] == 'DISTINCT this') {
 			$this->order($builder, static::$order);
 		}
 
