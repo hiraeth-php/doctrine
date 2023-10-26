@@ -261,6 +261,23 @@ abstract class AbstractRepository extends EntityRepository
 
 		if ((string) $selects[0] == 'DISTINCT this') {
 			$this->order($builder, static::$order);
+
+			foreach ($builder->getDQLPart('orderBy') as $order_expr) {
+				$alias = substr($order_expr, 0, strpos($order_expr, '.'));
+
+				if ($alias !== 'this') {
+					$matches = array_filter(
+						$selects,
+						function($select_expr) use ($alias) {
+							return (string) $select_expr == $alias;
+						}
+					);
+
+					if (!count($matches)) {
+						$builder->addSelect($alias);
+					}
+				}
+			}
 		}
 
 		if ($nonlimited_count === 0) {
@@ -463,26 +480,10 @@ abstract class AbstractRepository extends EntityRepository
 					}
 
 					$alias = $parts[$x+1];
-
-					$items = array_filter(
-						$builder->getDQLPart('select'),
-						function($select_dql) use ($alias) {
-							if ($select_dql->getParts()[0] == $alias) {
-								return TRUE;
-							}
-
-							return FALSE;
-						}
-					);
-
-					if (!count($items)) {
-						$builder->addSelect($alias);
-					}
-
 					$joins = array_filter(
 						$builder->getDQLPart('join'),
-						function($join_dql) use ($alias) {
-							foreach ($join_dql as $join) {
+						function($join_expr) use ($alias) {
+							foreach ($join_expr as $join) {
 								if (explode('.', $join->getJoin(), 2)[1] == $alias) {
 									return TRUE;
 								}
@@ -520,8 +521,8 @@ abstract class AbstractRepository extends EntityRepository
 			$path   = implode('.', array_slice($parts, -2));
 			$orders = array_filter(
 				$builder->getDQLPart('orderBy'),
-				function($order_sql) use ($path) {
-					foreach ($order_sql->getParts() as $order) {
+				function($order_expr) use ($path) {
+					foreach ($order_expr->getParts() as $order) {
 						if (explode(' ', $order, 2)[0] == $path) {
 							return TRUE;
 						}
