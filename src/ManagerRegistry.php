@@ -9,8 +9,7 @@ use Hiraeth\Dbal\ConnectionRegistry;
 use Doctrine\ORM;
 use Doctrine\DBAL;
 use Doctrine\Persistence;
-use Doctrine\ORM\Configuration;
-use Doctrine\ORM\EntityRepository;
+use Doctrine\Common\Proxy\Proxy;
 use Doctrine\Common\Proxy\AbstractProxyFactory;
 use Doctrine\Common\Annotations\AnnotationReader;
 use Doctrine\Common\Annotations\SimpleAnnotationReader;
@@ -21,7 +20,7 @@ use RuntimeException;
 use InvalidArgumentException;
 
 /**
- *
+ * The manager registry
  */
 class ManagerRegistry implements Persistence\ManagerRegistry
 {
@@ -46,7 +45,6 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	 */
 	protected $connectionRegistry;
 
-
 	/**
 	 * @var string
 	 */
@@ -54,7 +52,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * @var array<string, ORM\EntityManager>
+	 * @var array<string, Persistence\ObjectManager>
 	 */
 	protected $managers = array();
 
@@ -78,7 +76,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 *
+	 * Construct a new registry
 	 */
 	public function __construct(Hiraeth\Application $app, ConnectionRegistry $connection_registry)
 	{
@@ -109,17 +107,17 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * @param string $name
+	 * @param string $manager_name
 	 * @param string $path
 	 * @return static
 	 */
-	public function addEntityPath($name, $path): ManagerRegistry
+	public function addEntityPath(string $manager_name, string $path): ManagerRegistry
 	{
-		if (!isset($this->paths[$name])) {
-			$this->paths[$name] = array();
+		if (!isset($this->paths[$manager_name])) {
+			$this->paths[$manager_name] = array();
 		}
 
-		$this->paths[$name][] = $path;
+		$this->paths[$manager_name][] = $path;
 
 		return $this;
 	}
@@ -129,13 +127,17 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	 * @param string $alias
 	 * @return string|null
 	 */
-	public function getAliasNamespace($alias)
+	public function getAliasNamespace(string $alias)
 	{
 		foreach (array_keys($this->getManagers()) as $name) {
-			$namespace = $this->getManager($name)->getConfiguration()->getEntityNamespace($alias);
+			$manager = $this->getManager($name);
 
-			if ($namespace) {
-				return $namespace;
+			if ($manager instanceof ORM\EntityManager) {
+				$namespace = $manager->getConfiguration()->getEntityNamespace($alias);
+
+				if ($namespace) {
+					return $namespace;
+				}
 			}
 		}
 
@@ -144,17 +146,25 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
+	 *
+	 *
 	 * @param object|string $entity
 	 * @return class-string
 	 */
 	public function getClassName($entity)
 	{
 		if (is_object($entity)) {
-			$class = get_class($entity);
-		} elseif (strpos($entity, ':') !== false) {
+			if ($entity instanceof Proxy) {
+				$class = get_parent_class($entity);
+			} else {
+				$class = get_class($entity);
+			}
+
+		} elseif (strpos($entity, ':') !== FALSE) {
 			$parts = explode(':', $entity, 2);
 			$alias = $parts[0];
 			$class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
+
 		} else {
 			$class = $entity;
 		}
@@ -169,10 +179,11 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 		return $class;
 	}
 
+
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getConnection($name = null): DBAL\Connection
+	public function getConnection(string $name = null): DBAL\Connection
 	{
 		return $this->connectionRegistry->getConnection($name);
 	}
@@ -208,7 +219,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getDefaultManagerName()
+	public function getDefaultManagerName(): string
 	{
 		return $this->defaultManager;
 	}
@@ -216,10 +227,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 	/**
 	 * {@inheritdoc}
-	 *
-	 * @return ORM\EntityManager
 	 */
-	public function getManager($name = null)
+	public function getManager(string $name = null): Persistence\ObjectManager
 	{
 		if ($name === null) {
 			$name = $this->defaultManager;
@@ -357,9 +366,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	 * {@inheritdoc}
 	 *
 	 * @param class-string $class
-	 * @return ORM\EntityManager|null
 	 */
-	public function getManagerForClass($class)
+	public function getManagerForClass(string $class): ?Persistence\ObjectManager
 	{
 		$class      = $this->getClassName($class);
 		$reflection = new ReflectionClass($class);
@@ -387,13 +395,13 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getManagerNames()
+	public function getManagerNames(): array
 	{
 		return array_combine(
 			array_keys($this->managerConfigs),
 			array_map(
 				function ($collection): string {
-					return $this->app->getConfig($collection, 'manager.name', 'Unknown  Name');
+					return $this->app->getConfig($collection, 'manager.name', 'Unknown Name');
 				},
 				$this->managerConfigs
 			)
@@ -403,10 +411,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 	/**
 	 * {@inheritdoc}
-	 *
-	 * @return array<string, ORM\EntityManager>
 	 */
-	public function getManagers()
+	public function getManagers(): array
 	{
 		foreach ($this->managerConfigs as $name => $collection) {
 			if (!isset($this->managers[$name])) {
@@ -419,24 +425,24 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * {@inheritdoc}
+	 * Gets the ObjectRepository for a persistent object.
 	 */
-	public function getRepository($object_name, $manager_name = null)
+	public function getRepository(string $class, string $manager_name = null): ?AbstractRepository
 	{
 		if ($manager_name) {
 			$manager = $this->getManager($manager_name);
 		} else {
-			$manager = $this->getManagerForClass($object_name) ?? $this->getManager();
+			$manager = $this->getManagerForClass($class) ?? $this->getManager();
 		}
 
-		return $manager->getRepository($object_name);
+		return $manager->getRepository($class);
 	}
 
 
 	/**
-	 *
+	 * Reset a manager by re-reading its configs and establishing new dependencies
 	 */
-	public function resetManager($name = null)
+	public function resetManager(string $name = null): Persistence\ObjectManager
 	{
 		if (!$name) {
 			$name = $this->defaultManager;

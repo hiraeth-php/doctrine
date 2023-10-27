@@ -15,7 +15,7 @@ use Doctrine\Common\Collections;
 abstract class AbstractRepository extends EntityRepository
 {
 	/**
-	 * @var class-string<Collection<int, Entity>>
+	 * @var class-string<Collections\Collection>
 	 */
 	static protected $collection = Collection::class;
 
@@ -54,6 +54,7 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Construct a new repository
 	 *
 	 * @param ManagerRegistry $registry
 	 * @param Hydrator $hydrator
@@ -167,10 +168,6 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 *
-	 * This overload adds the ability to order the results and also returns the results as a
-	 * collection instead of an array.
-	 *
-	 * @param array<string>|null $order_by The order by clause to add
 	 * @return Collection<int, Entity>
 	 */
 	public function findAll(?array $order_by = []): Collection
@@ -394,6 +391,8 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Update an entity using the hydrator
+	 *
 	 * @param Entity $entity
 	 * @param array<string, mixed> $data
 	 * @return self<Entity> The repository instance for method chaining.
@@ -407,9 +406,11 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @param callable|string|array<mixed> $build_callback
+	 * Initiate build and execute callbacks
+	 *
+	 * @param callable|string|array<mixed> $build_callbacks
 	 */
-	protected function build($build_callback): QueryBuilder
+	protected function build($build_callbacks): QueryBuilder
 	{
 		$builder = $this->manager->createQueryBuilder();
 
@@ -418,12 +419,12 @@ abstract class AbstractRepository extends EntityRepository
 			->from(static::$entity, 'this')
 		;
 
-		if (is_callable($build_callback)) {
-			$builder = $build_callback($builder);
+		if (is_callable($build_callbacks)) {
+			$builder = $build_callbacks($builder);
 
 		} else {
-			if (!is_array($build_callback)) {
-				$build_callback = array($build_callback);
+			if (!is_array($build_callbacks)) {
+				$build_callback = array($build_callbacks);
 			}
 
 			foreach ($build_callback as $method) {
@@ -442,6 +443,8 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Collect one or more querie results into a single custom collection
+	 *
 	 * @return Collection<int, Entity>
 	 */
 	protected function collect(Query ...$queries): Collection
@@ -460,6 +463,8 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Add joining to a builder based on criteria
+	 *
 	 * @param QueryBuilder $builder
 	 * @param array<int, mixed> $data
 	 * @return array<mixed>
@@ -507,6 +512,8 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Add ordering to a builder based on criteria
+	 *
 	 * @param QueryBuilder $builder
 	 * @param array<string, string> $order
 	 * @return array<string>
@@ -544,9 +551,12 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Normalize the paths in a criteria
 	 *
+	 * @param array<string, mixed> $data
+	 * @return array<string, mixed>
 	 */
-	protected function pathize(array $data, $prefix = 'this'): array
+	protected function pathize(array $data, string $prefix = 'this'): array
 	{
 		$result = array();
 

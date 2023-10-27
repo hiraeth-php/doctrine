@@ -6,9 +6,9 @@ use InvalidArgumentException;
 use Doctrine\Common\Collections;
 
 /**
- * @template TKey of array-key
- * @template T
- * @extends Collections\ArrayCollection<TKey, T>
+ * @template Key of int
+ * @template Entity of object
+ * @extends Collections\ArrayCollection<Key, Entity>
  */
 class Collection extends Collections\ArrayCollection
 {
@@ -16,7 +16,7 @@ class Collection extends Collections\ArrayCollection
 
 	/**
 	 * @param array<string, string> $config
-	 * @return Collection<TKey, T>
+	 * @return Collection<int, Entity>
 	 */
 	public function order(array $config): Collection
 	{
