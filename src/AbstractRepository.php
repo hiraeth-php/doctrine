@@ -136,7 +136,7 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		if (!is_null($id)) {
 			if (is_scalar($id)) {
-				return parent::find($id, $lock_mode, $lock_version);
+				return parent::find($id, $lock_mode, $lock_version) ?: NULL;
 			}
 
 			if (is_array($id) && array_keys($id)) {
@@ -157,7 +157,7 @@ abstract class AbstractRepository extends EntityRepository
 					));
 				}
 
-				return $result->first();
+				return $result->first() ?: NULL;
 			}
 		}
 
