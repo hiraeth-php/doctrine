@@ -248,12 +248,12 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Query the repository using a build callback.
 	 *
-	 * @param callable|string|array<callable|string> $build_callback
+	 * @param callable|string|array<callable|string> $build_callbacks
 	 * @return Collection<int, Entity> The collection of entities matching the query builder.
 	 */
-	public function query($build_callback, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
+	public function query($build_callbacks, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
 	{
-		$builder = $this->build($build_callback);
+		$builder = $this->build($build_callbacks);
 		$selects = $builder->getDQLPart('select');
 
 		if ((string) $selects[0] == 'DISTINCT this') {
@@ -294,12 +294,12 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Count the number of entities in a repository using a build callback.
 	 *
-	 * @param callable|string|array<callable|string> $build_callback
+	 * @param callable|string|array<callable|string> $build_callbacks
 	 * @return mixed The number of entities matching the query builder.
 	 */
-	public function queryCount($build_callback, bool $non_limited = FALSE, bool $cache = TRUE)
+	public function queryCount($build_callbacks, bool $non_limited = FALSE, bool $cache = TRUE)
 	{
-		$builder    = $this->build($build_callback);
+		$builder    = $this->build($build_callbacks);
 		$meta_data  = $this->getClassMetadata();
 		$identifier = $meta_data->getIdentifierFieldNames();
 
@@ -424,10 +424,10 @@ abstract class AbstractRepository extends EntityRepository
 
 		} else {
 			if (!is_array($build_callbacks)) {
-				$build_callback = array($build_callbacks);
+				$build_callbacks = array($build_callbacks);
 			}
 
-			foreach ($build_callback as $method) {
+			foreach ($build_callbacks as $method) {
 				if (!is_callable($method)) {
 					$method = [$this, 'build' . ucfirst($method)];
 				}
