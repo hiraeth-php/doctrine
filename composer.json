@@ -19,15 +19,14 @@
         "hiraeth/dbal": "^3.0",
         "doctrine/orm": "^3.0",
         "hiraeth/caching-imp": "^3.0",
-        "doctrine/annotations": "^2.0",
-        "cache/psr-6-doctrine-bridge": "^3.0"
+        "doctrine/annotations": "^2.0"
     },
     "require-dev": {
         "phpstan/phpstan": "^1.0",
 	"phpunit/phpunit": "^10.0",
-        "hiraeth/stash": "^3.0",
 	"hiraeth/fastroute": "^3.0",
-	"hiraeth/diactoros": "^3.0"
+	"hiraeth/diactoros": "^3.0",
+        "hiraeth/cache": "^3.0"
     },
     "type": "opus-package",
     "extra": {
