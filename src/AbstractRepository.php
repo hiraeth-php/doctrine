@@ -250,10 +250,22 @@ abstract class AbstractRepository extends EntityRepository
 				$alias = substr($order_expr, 0, strpos($order_expr, '.') ?: NULL);
 
 				if ($alias !== 'this') {
-					$matches = array_filter(
+					$order_on = substr($order_expr, 0, strpos($order_expr, ' '));
+					$matches  = array_filter(
 						$selects,
-						function($select_expr) use ($alias) {
-							return (string) $select_expr == $alias;
+						function($select_expr) use ($alias, $order_on) {
+							if ((string) $select_expr == $alias) {
+								return TRUE;
+							}
+
+							$is_hidden = strpos(strtoupper($select_expr), 'AS HIDDEN') !== FALSE;
+							$is_match  = strpos($select_expr, $order_on) === 0;
+
+							if ($is_hidden && $is_match) {
+								return TRUE;
+							}
+
+							return FALSE;
 						}
 					);
 
