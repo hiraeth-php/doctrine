@@ -11,9 +11,6 @@
             "role":  "Lead Architect / Developer"
         }
     ],
-    "autoload": {
-        "classmap": ["src/"]
-    },
     "require": {
         "hiraeth/app": "^3.0",
         "hiraeth/dbal": "^3.0",
@@ -27,6 +24,16 @@
 	"hiraeth/fastroute": "^3.0",
 	"hiraeth/diactoros": "^3.0",
         "hiraeth/cache": "^3.0"
+    },
+    "autoload": {
+        "classmap": [
+            "src"
+        ]
+    },
+    "autoload-dev": {
+        "classmap": [
+            "test/src"
+        ]
     },
     "type": "opus-package",
     "extra": {
