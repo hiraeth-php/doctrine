@@ -3,11 +3,6 @@
 namespace Hiraeth\Doctrine;
 
 use Hiraeth\Console;
-use Doctrine\Migrations\DependencyFactory;
-use Doctrine\Migrations\Configuration\Configuration;
-use Doctrine\Migrations\Configuration\Connection\ExistingConnection;
-use Doctrine\Migrations\Configuration\Migration\ExistingConfiguration;
-use Doctrine\Migrations\Metadata\Storage\TableMetadataStorageConfiguration;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -70,10 +65,19 @@ abstract class AbstractCommand extends Console\ProxyCommand
 	 */
 	protected function execute(InputInterface $input, OutputInterface $output): int
 	{
-		$input->setOption('em', $input->getOption('manager'));
-
 		$command = new static::$proxy($this->managers);
 
-		return $command->run($this->passthru($input), $output);
+		return $command->run($this->passthru($input, [
+			'--em' => $input->getOption('manager')
+		]), $output);
+	}
+
+
+	/**
+	 *
+	 */
+	protected function proxy()
+	{
+		return new static::$proxy($this->managers);
 	}
 }
