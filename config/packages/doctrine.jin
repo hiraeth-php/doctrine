@@ -63,10 +63,10 @@
 [console]
 
 	commands = {
-		"orm:generate-proxies":   "Doctrine\ORM\Tools\Console\Command\GenerateProxiesCommand",
-		"orm:schema-tool:create": "Doctrine\ORM\Tools\Console\Command\SchemaTool\CreateCommand",
-		"orm:schema-tool:update": "Doctrine\ORM\Tools\Console\Command\SchemaTool\UpdateCommand",
-		"orm:schema-tool:drop":   "Doctrine\ORM\Tools\Console\Command\SchemaTool\DropCommand",
+		"orm:generate-proxies":   "Hiraeth\Doctrine\GenerateProxiesCommand",
+		"orm:schema-tool:create": "Hiraeth\Doctrine\CreateCommand",
+		"orm:schema-tool:update": "Hiraeth\Doctrine\UpdateCommand",
+		"orm:schema-tool:drop":   "Hiraeth\Doctrine\DropCommand",
 	}
 
 [fastroute]
