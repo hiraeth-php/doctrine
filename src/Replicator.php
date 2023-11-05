@@ -2,10 +2,12 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Mapping\ClassMetadataInfo;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\InverseSideMapping;
+use Doctrine\ORM\Mapping\OwningSideMapping;
 
 /**
- * @template Entity of object
+ * @template T of AbstractEntity
  */
 class Replicator
 {
@@ -27,12 +29,12 @@ class Replicator
 
 
 	/**
-	 * @param Entity|null $entity
+	 * @param ?T $entity
 	 * @param array<string, mixed> $data
 	 * @param array<string|int, string> $source
-	 * @return Entity|null
+	 * @return ?T
 	 */
-	public function clone(?object $entity, array $data = array(), array $source = array()): ?object
+	public function clone(?AbstractEntity $entity, array $data = array(), array $source = array()): ?AbstractEntity
 	{
 		if (is_null($entity)) {
 			return NULL;
@@ -42,27 +44,28 @@ class Replicator
 		$entity   = clone $original;
 		$class    = $this->registry->getClassName($entity);
 		$manager  = $this->registry->getManagerForClass($class);
+		$mappings = $manager->getClassMetaData($class)->getAssociationMappings();
 
 		foreach ($data as $field => $value) {
 			$this->setProperty($entity, $field, $value);
 		}
 
-		foreach ($manager->getClassMetaData($class)->associationMappings as $mapping) {
-			if (isset($data[$mapping['fieldName']])) {
+		foreach ($mappings as $field => $mapping) {
+			if (isset($data[$field])) {
 				continue;
 			}
 
-			if ($mapping['type'] == ClassMetadataInfo::ONE_TO_ONE) {
+			if ($mapping->isOneToOne()) {
 				$this->setProperty(
 					$entity,
-					$mapping['fieldName'],
+					$field,
 					$this->clone(
-						$this->getProperty($entity, $mapping['fieldName'], TRUE),
-						$mapping['inversedBy']
-							? [$mapping['inversedBy'] => $entity]
+						$this->getProperty($entity, $field, TRUE),
+						$mapping instanceof OwningSideMapping
+							? [$mapping->inversedBy => $entity]
 							: (
-								$mapping['mappedBy']
-									? [$mapping['mappedBy'] => $entity]
+								$mapping instanceof InverseSideMapping
+									? [$mapping->mappedBy => $entity]
 									: []
 							),
 						[
@@ -72,21 +75,21 @@ class Replicator
 				);
 			}
 
-			if ($mapping['type'] == ClassMetadataInfo::ONE_TO_MANY) {
-				$collection = clone $this->getProperty($entity, $mapping['fieldName'], TRUE);
+			if ($mapping->isOneToMany()) {
+				$collection = clone $this->getProperty($entity, $field, TRUE);
 
 				$this->setProperty(
 					$entity,
-					$mapping['fieldName'],
+					$field,
 					$collection->map(
-						function($related_entity) use ($mapping, $entity, $class) {
+						function($related_entity) use ($mapping, $entity, $class, $field) {
 							return $this->clone(
 								$related_entity,
-								$mapping['mappedBy']
-									? [$mapping['mappedBy'] => $entity]
-									: [],
 								[
-									$class => $mapping['fieldName']
+									$mapping->mappedBy => $entity
+								],
+								[
+									$class => $field
 								]
 							);
 						}
@@ -101,8 +104,12 @@ class Replicator
 		//
 
 		foreach ($manager->getMetadataFactory()->getAllMetaData() as $meta_data) {
-			foreach ($meta_data->associationMappings as $mapping) {
-				if (!is_a($class, $mapping['targetEntity'], TRUE)) {
+			if (!$meta_data instanceof ClassMetadata) {
+				continue;
+			}
+
+			foreach ($meta_data->getAssociationMappings() as $field => $mapping) {
+				if (!is_a($class, $mapping->targetEntity, TRUE)) {
 					//
 					// If our class is not a version of thet target entity, we aren't concerned
 					// with the mapping.
@@ -111,16 +118,25 @@ class Replicator
 					continue;
 				}
 
-				if ($mapping['inversedBy'] || $mapping['mappedBy']) {
+				if ($mapping instanceof InverseSideMapping && $mapping->mappedBy) {
 					//
-					// If this mapping is inversed or mapped by something else then we already have
-					// it or don't want it.
+					// If this mapping is on the inverse side and is mapped by something else
+					// it or don't want it because we already have it.
 					//
 
 					continue;
 				}
 
-				if (array_search($mapping['fieldName'], $source) == $mapping['sourceEntity']) {
+				if ($mapping instanceof OwningSideMapping && $mapping->inversedBy) {
+					//
+					// If this mapping is on the owning side and is inversed by something else
+					// it or don't want it because we already have it.
+					//
+
+					continue;
+				}
+
+				if (array_search($field, $source) == $mapping->sourceEntity) {
 					//
 					// If this mapping is a re-discovery of our source, then we already have
 					// it.
@@ -129,28 +145,34 @@ class Replicator
 					continue;
 				}
 
-				if ($mapping['type'] == ClassMetadataInfo::ONE_TO_ONE) {
+				if ($mapping->isOneToOne()) {
+					/**
+					 * @var ?T
+					 */
 					$related_entity = $manager->getRepository($meta_data->name)->findOneBy([
-						$mapping['fieldName'] => $original
+						$field => $original
 					]);
 
 					if ($related_entity) {
 						$this->clone(
 							$related_entity,
-							[$mapping['fieldName'] => $entity]
+							[$field => $entity]
 						);
 					}
 				}
 
-				if ($mapping['type'] == ClassMetadataInfo::MANY_TO_ONE) {
+				if ($mapping->isManyToOne()) {
+					/**
+					 * @var T[]
+					 */
 					$collection = $manager->getRepository($meta_data->name)->findBy([
-						$mapping['fieldName'] => $original
+						$field => $original
 					]);
 
 					foreach ($collection as $related_entity) {
 						$this->clone(
 							$related_entity,
-							[$mapping['fieldName'] => $entity]
+							[$field => $entity]
 						);
 					}
 				}

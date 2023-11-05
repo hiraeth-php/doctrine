@@ -4,12 +4,13 @@ namespace Hiraeth\Doctrine;
 
 use Doctrine\DBAL\Types\Type;
 use Doctrine\Common\Collections;
-use Doctrine\ORM\Mapping\ClassMetadataInfo;
+use Doctrine\ORM\Mapping\InverseSideMapping;
+use Doctrine\ORM\Mapping\OwningSideMapping;
 use Doctrine\Persistence\Proxy;
 use RuntimeException;
 
 /**
- *
+ * @template T of AbstractEntity
  */
 class Hydrator
 {
@@ -48,11 +49,11 @@ class Hydrator
 	/**
 	 * Fill and object
 	 *
-	 * @param object $entity
+	 * @param T $entity
 	 * @param array<string, mixed> $data
-	 * @return self The hydrator instance for method chaining.
+	 * @return self<T>
 	 */
-	public function fill(object $entity, array $data, bool $protect = TRUE): Hydrator
+	public function fill(AbstractEntity $entity, array $data, bool $protect = TRUE): Hydrator
 	{
 		$class     = $this->registry->getClassName($entity);
 		$manager   = $this->registry->getManagerForClass($class);
@@ -64,12 +65,10 @@ class Hydrator
 		}
 
 		foreach ($data as $field => $value) {
-			if ($protect && isset($entity::$_protect)) {
-				$protected = array_intersect(['*', $field], $entity::$_protect ?? ['*']);
+			$protected = array_intersect(['*', $field], $entity::$_protect);
 
-				if ($protected) {
-					continue;
-				}
+			if ($protected) {
+				continue;
 			}
 
 			if (array_key_exists($field, $meta_data->associationMappings)) {
@@ -91,7 +90,7 @@ class Hydrator
 
 			} elseif (array_key_exists($field, $meta_data->fieldMappings)) {
 				if (is_scalar($value) || is_object($value)) {
-					$type  = Type::getType($meta_data->fieldMappings[$field]['type']);
+					$type = Type::getType($meta_data->fieldMappings[$field]['type']);
 
 					if (isset($this->filters[$type->getName()])) {
 						$value = $this->filters[$type->getName()]($value);
@@ -113,40 +112,32 @@ class Hydrator
 
 
 	/**
-	 * @param object $entity
+	 * @param T $entity
 	 * @param mixed $value
-	 * @return self
+	 * @return self<T>
 	 */
-	protected function fillAssociation(object $entity, string $field, $value, bool $protect = TRUE): self
+	protected function fillAssociation(AbstractEntity $entity, string $field, $value, bool $protect = TRUE): self
 	{
+		$link      = NULL;
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
 		$meta_data = $manager->getClassMetaData($class);
-		$mapping   = $meta_data->associationMappings[$field];
+		$mapping   = $meta_data->getAssociationMapping($field);
 
-		if ($mapping['isOwningSide']) {
-			$link = $mapping['inversedBy'];
-		} else {
-			$link = $mapping['mappedBy'];
+		if ($mapping instanceof OwningSideMapping) {
+			$link = $mapping->inversedBy;
 		}
 
-		switch ($mapping['type']) {
-			case ClassMetadataInfo::ONE_TO_ONE:
-			case ClassMetadataInfo::MANY_TO_ONE:
-				$this->fillAssociationToOne($entity, $field, $link, $value, $protect);
-				break;
+		if ($mapping instanceof InverseSideMapping) {
+			$link = $mapping->mappedBy;
+		}
 
-			case ClassMetadataInfo::MANY_TO_MANY:
-			case ClassMetadataInfo::ONE_TO_MANY:
-				$this->fillAssociationToMany($entity, $field, $link, $value, $protect);
-				break;
+		if ($mapping->isToOne()) {
+			$this->fillAssociationToOne($entity, $field, $link, $value, $protect);
+		}
 
-
-			default:
-				throw new RuntimeException(sprintf(
-					'Unknown mapping type "%s"',
-					$mapping['type']
-				));
+		if ($mapping->isToMany()) {
+			$this->fillAssociationToMany($entity, $field, $link, $value, $protect);
 		}
 
 		return $this;
@@ -154,11 +145,11 @@ class Hydrator
 
 
 	/**
-	 * @param object $entity
+	 * @param T $entity
 	 * @param array<mixed> $values
-	 * @return self
+	 * @return self<T>
 	 */
-	protected function fillAssociationToMany(object $entity, string $field, ?string $link, $values, bool $protect = TRUE): self
+	protected function fillAssociationToMany(AbstractEntity $entity, string $field, ?string $link, $values, bool $protect = TRUE): self
 	{
 		settype($values, 'array');
 
@@ -228,11 +219,11 @@ class Hydrator
 
 
 	/**
-	 * @param object $entity
+	 * @param T $entity
 	 * @param mixed $value
-	 * @return self
+	 * @return self<T>
 	 */
-	protected function fillAssociationToOne(object $entity, string $field, ?string $link, $value, bool $protect = TRUE): self
+	protected function fillAssociationToOne(AbstractEntity $entity, string $field, ?string $link, $value, bool $protect = TRUE): self
 	{
 		$current_value  = $this->getProperty($entity, $field, TRUE);
 		$related_entity = $this->findAssociated($entity, $field, $value);
@@ -285,17 +276,17 @@ class Hydrator
 
 
 	/**
+	 * @param T $entity
 	 * @param mixed $id
 	 * @param 0|1|2|4|null $lock_mode
-	 * @return object|null
+	 * @return ?T
 	 */
-	protected function findAssociated(object $entity, string $field, $id, ?int $lock_mode = NULL, ?int $lock_version = NULL): ?object
+	protected function findAssociated(AbstractEntity $entity, string $field, $id, ?int $lock_mode = NULL, ?int $lock_version = NULL): ?AbstractEntity
 	{
 		$class     = get_class($entity);
 		$manager   = $this->registry->getManagerForClass($class);
 		$meta_data = $manager->getClassMetaData($class);
-		$mapping   = $meta_data->associationMappings[$field];
-		$target    = $mapping['targetEntity'];
+		$mapping   = $meta_data->getAssociationMapping($field);
 
 		if (!$class) {
 			throw new RuntimeException(sprintf(
@@ -303,6 +294,11 @@ class Hydrator
 				$field
 			));
 		}
+
+		/**
+		 * @var class-string<T>
+		 */
+		$target = $mapping->targetEntity;
 
 		//
 		// Short circuit logic.  If we're not an array and we're an empty value or existing
@@ -349,11 +345,13 @@ class Hydrator
 		// to get it from the entity.
 		//
 
-		if (count($id) == count($target_id_fields)) {
-			$existing_record = $manager->find($target, $id, $lock_mode, $lock_version);
-		} else {
-			$existing_record = $this->getProperty($entity, $field, TRUE);
-		}
+		/**
+		 * @var AbstractEntity
+		 */
+		$existing_record = count($id) == count($target_id_fields)
+			? $manager->find($target, $id, $lock_mode, $lock_version)
+			: $this->getProperty($entity, $field, TRUE)
+		;
 
 		//
 		// Lastly, if we have an existing record, we'll return that, if not, we'll return a totally

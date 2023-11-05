@@ -6,22 +6,23 @@ use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\Common\Collections;
 use Doctrine\DBAL\LockMode;
 
 /**
- * @template Entity of object
- * @extends EntityRepository<Entity>
+ * @template T of AbstractEntity
+ * @extends EntityRepository<T>
  */
 abstract class AbstractRepository extends EntityRepository
 {
 	/**
-	 * @var class-string<Collection>
+	 * @var class-string<Collection<int, T>>
 	 */
 	static protected $collection = Collection::class;
 
 	/**
-	 * @var class-string<Entity>
+	 * @var class-string<T>
 	 */
 	static protected $entity;
 
@@ -31,7 +32,7 @@ abstract class AbstractRepository extends EntityRepository
 	static protected $order = [];
 
 	/**
-	 * @var Hydrator
+	 * @var Hydrator<T>
 	 */
 	protected $hydrator;
 
@@ -49,7 +50,7 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @var Replicator<Entity>
+	 * @var Replicator<T>
 	 */
 	protected $replicator;
 
@@ -58,8 +59,8 @@ abstract class AbstractRepository extends EntityRepository
 	 * Construct a new repository
 	 *
 	 * @param ManagerRegistry $registry
-	 * @param Hydrator $hydrator
-	 * @param Replicator<Entity> $replicator
+	 * @param Hydrator<T> $hydrator
+	 * @param Replicator<T> $replicator
 	 */
 	public function __construct(ManagerRegistry $registry, Hydrator $hydrator, Replicator $replicator)
 	{
@@ -69,7 +70,12 @@ abstract class AbstractRepository extends EntityRepository
 		$this->replicator = $replicator;
 		$this->manager    = $this->registry->getManagerForClass(static::$entity);
 
-		parent::__construct($this->manager, $this->manager->getClassMetadata(static::$entity));
+		/**
+		 * @var ClassMetadata <T>
+		 */
+		$meta_data = $this->manager->getClassMetadata(static::$entity);
+
+		parent::__construct($this->manager, $meta_data);
 	}
 
 
@@ -78,7 +84,7 @@ abstract class AbstractRepository extends EntityRepository
 	 *
 	 * @param array<string, mixed> $data
 	 * @param bool $protect
-	 * @return Entity
+	 * @return T
 	 */
 	public function create(array $data = array(), bool $protect = TRUE): object
 	{
@@ -100,8 +106,8 @@ abstract class AbstractRepository extends EntityRepository
 	 * it is determined that you do want to persist the changes, use the attach() method to
 	 * merge it back into the repository.
 	 *
-	 * @param Entity $entity The entity to detach.
-	 * @return self<Entity> The repository instance for method chaining.
+	 * @param T $entity The entity to detach.
+	 * @return self<T> The repository instance for method chaining.
 	 */
 	public function detach(object $entity): self
 	{
@@ -112,7 +118,7 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * @return Entity|null
+	 * @return T|null
 	 */
 	public function find($id, LockMode|int|null $lock_mode = NULL, int|null $lock_version = NULL): ?object
 	{
@@ -151,7 +157,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * {@inheritDoc}
 	 *
 	 * @param array<string, 'ASC'|'asc'|'DESC'|'desc'>|null $order_by
-	 * @return Entity[]
+	 * @return T[]
 	 */
 	public function findAll(?array $order_by = []): array
 	{
@@ -163,7 +169,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * {@inheritDoc}
 	 *
 	 * @param array<string, 'ASC'|'asc'|'DESC'|'desc'>|null $order_by
-	 * @return Entity[]
+	 * @return T[]
 	 */
 	public function findBy(array $criteria, ?array $order_by = [], int|null $limit = null, int|null $offset = null, ?int &$nonlimited_count = NULL): array
 	{
@@ -224,7 +230,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * {@inheritDoc}
 	 *
 	 * @param array<string, 'ASC'|'asc'|'DESC'|'desc'>|null $order_by
-	 * @return Entity|null
+	 * @return T|null
 	 */
 	public function findOneBy(array $criteria, ?array $order_by = []): ?object
 	{
@@ -236,7 +242,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * Query the repository using a build callback.
 	 *
 	 * @param callable|string|array<callable|string> $build_callbacks
-	 * @return Collection<int, Entity> The collection of entities matching the query builder.
+	 * @return Collection<int, T> The collection of entities matching the query builder.
 	 */
 	public function query($build_callbacks, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
 	{
@@ -250,7 +256,7 @@ abstract class AbstractRepository extends EntityRepository
 				$alias = substr($order_expr, 0, strpos($order_expr, '.') ?: NULL);
 
 				if ($alias !== 'this') {
-					$order_on = substr($order_expr, 0, strpos($order_expr, ' '));
+					$order_on = substr($order_expr, 0, strpos($order_expr, ' ') ?: NULL);
 					$matches  = array_filter(
 						$selects,
 						function($select_expr) use ($alias, $order_on) {
@@ -324,10 +330,10 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Remove an entity from the repository.
 	 *
-	 * @param Entity $entity The entity to remove.
+	 * @param T $entity The entity to remove.
 	 * @param bool $flush Whether or not to flush the entity manager immediately.
 	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
-	 * @return self<Entity> The repository instance for method chaining.
+	 * @return self<T> The repository instance for method chaining.
 	 */
 	public function remove(object $entity, bool $flush = FALSE, bool $recompute = FALSE)
 	{
@@ -351,8 +357,8 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Replicate an entity using the replicator which will do smart deep cloning.
 	 *
-	 * @param Entity $entity The entity to replicate.
-	 * @return Entity|null The replicated entity.
+	 * @param T $entity The entity to replicate.
+	 * @return T|null The replicated entity.
 	 */
 	public function replicate(object $entity): ?object
 	{
@@ -363,10 +369,10 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Store an entity in the repository by persisting it, or flush all changes
 	 *
-	 * @param Entity $entity The entity to store.
+	 * @param T $entity The entity to store.
 	 * @param bool $flush Whether or not to flush the entity manager immediately.
 	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
-	 * @return self<Entity> The repository instance for method chaining.
+	 * @return self<T> The repository instance for method chaining.
 	 */
 	public function store(object $entity = NULL, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
 	{
@@ -398,9 +404,9 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Update an entity using the hydrator
 	 *
-	 * @param Entity $entity
+	 * @param T $entity
 	 * @param array<string, mixed> $data
-	 * @return self<Entity> The repository instance for method chaining.
+	 * @return self<T> The repository instance for method chaining.
 	 */
 	public function update(object $entity, array $data, bool $protect = TRUE): AbstractRepository
 	{
@@ -450,7 +456,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Collect one or more querie results into a single custom collection
 	 *
-	 * @return Collection<int, Entity>
+	 * @return Collection<int, T>
 	 */
 	protected function collect(Query ...$queries): Collection
 	{

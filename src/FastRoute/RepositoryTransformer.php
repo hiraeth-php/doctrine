@@ -62,7 +62,7 @@ class RepositoryTransformer implements FastRoute\Transformer
 	public function toUrl($name, $value, array $context = array()): string
 	{
 		$class = get_class($value);
-		$parts = explode('\\', $class);
+		$parts = explode('\\', $class ?: 'Unknkown');
 
 		return implode('/', array_map(
 			function($part) {

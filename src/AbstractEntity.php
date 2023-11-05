@@ -12,7 +12,7 @@ abstract class AbstractEntity
 	 *
 	 * @var array<string>
 	 */
-	static public $_protect = array();
+	static public $_protect = ['*'];
 
 	/**
 	 *

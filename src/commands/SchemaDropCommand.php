@@ -2,14 +2,22 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Tools\Console\Command\SchemaTool;
+use Doctrine\ORM\Tools\Console\Command;
 
 /**
  *
  */
-class SchemaDropCommand extends SchemaTool\DropCommand
+class SchemaDropCommand extends AbstractCommand
 {
-	use MultipleEntityManagers;
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $defaultName = 'orm:schema-tool:drop';
 
-	protected static $defaultName = 'orm:schema-tool:drop';
+
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $proxy = Command\SchemaTool\DropCommand::class;
+
 }

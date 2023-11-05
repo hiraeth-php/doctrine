@@ -7,9 +7,16 @@ use Doctrine\ORM\Tools\Console\Command;
 /**
  *
  */
-class GenerateProxiesCommand extends Command\GenerateProxiesCommand
+class GenerateProxiesCommand extends AbstractCommand
 {
-	use MultipleEntityManagers;
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $defaultName = 'orm:generate:proxies';
 
-	protected static $defaultName = 'orm:generate:proxies';
+
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $proxy = Command\GenerateProxiesCommand::class;
 }

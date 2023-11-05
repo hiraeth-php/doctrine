@@ -2,14 +2,22 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Tools\Console\Command\SchemaTool;
+use Doctrine\ORM\Tools\Console\Command;
 
 /**
  *
  */
-class SchemaCreateCommand extends SchemaTool\CreateCommand
+class SchemaCreateCommand extends AbstractCommand
 {
-	use MultipleEntityManagers;
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $defaultName = 'orm:schema-tool:create';
 
-	protected static $defaultName = 'orm:schema-tool:create';
+
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $proxy = Command\SchemaTool\CreateCommand::class;
 }
+

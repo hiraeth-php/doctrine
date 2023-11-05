@@ -9,31 +9,20 @@ use Hiraeth\Dbal\ConnectionRegistry;
 use Doctrine\ORM;
 use Doctrine\DBAL;
 use Doctrine\Persistence;
-use Doctrine\Common\Proxy\Proxy;
-use Doctrine\Common\Proxy\AbstractProxyFactory;
-use Doctrine\Common\Annotations\AnnotationReader;
-use Doctrine\Common\Annotations\SimpleAnnotationReader;
-use Doctrine\ORM\Mapping\Driver\AnnotationDriver;
+use Doctrine\ORM\EntityManager;
+use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Tools\Console\EntityManagerProvider;
+use Doctrine\ORM\Mapping\Driver\AttributeDriver;
 
-use ReflectionClass;
-use RuntimeException;
 use InvalidArgumentException;
+use RuntimeException;
+use ReflectionClass;
 
 /**
  * The manager registry
  */
-class ManagerRegistry implements Persistence\ManagerRegistry
+class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvider
 {
-	/**
-	 * A list of older readers for driver implementation
-	 *
-	 * @var array
-	 */
-	static protected $annotationDrivers = [
-		SimpleAnnotationReader::class,
-		AnnotationReader::class
-	];
-
 	/**
 	 * @var Hiraeth\Application
 	 */
@@ -52,7 +41,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * @var array<string, Persistence\ObjectManager>
+	 * @var array<string, EntityManager>
 	 */
 	protected $managers = array();
 
@@ -111,7 +100,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	 * @param string $path
 	 * @return static
 	 */
-	public function addEntityPath(string $manager_name, string $path): ManagerRegistry
+	public function addEntityPath(string $manager_name, string $path): self
 	{
 		if (!isset($this->paths[$manager_name])) {
 			$this->paths[$manager_name] = array();
@@ -124,47 +113,13 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * @param string $alias
-	 * @return string|null
-	 */
-	public function getAliasNamespace(string $alias)
-	{
-		foreach (array_keys($this->getManagers()) as $name) {
-			$manager = $this->getManager($name);
-
-			if ($manager instanceof ORM\EntityManager) {
-				$namespace = $manager->getConfiguration()->getEntityNamespace($alias);
-
-				if ($namespace) {
-					return $namespace;
-				}
-			}
-		}
-
-		return NULL;
-	}
-
-
-	/**
-	 *
-	 *
-	 * @param object|string $entity
+	 * @param object|class-string $entity
 	 * @return class-string
 	 */
 	public function getClassName($entity)
 	{
 		if (is_object($entity)) {
-			if ($entity instanceof Proxy) {
-				$class = get_parent_class($entity);
-			} else {
-				$class = get_class($entity);
-			}
-
-		} elseif (strpos($entity, ':') !== FALSE) {
-			$parts = explode(':', $entity, 2);
-			$alias = $parts[0];
-			$class = $this->getAliasNamespace($alias) . '\\' . $parts[1];
-
+			$class = get_class($entity);
 		} else {
 			$class = $entity;
 		}
@@ -217,6 +172,15 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
+	 * {@inheritDoc}
+	 */
+	public function getDefaultManager(): EntityManager
+	{
+		return $this->getManager();
+	}
+
+
+	/**
 	 * {@inheritdoc}
 	 */
 	public function getDefaultManagerName(): string
@@ -228,7 +192,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getManager(string $name = null): Persistence\ObjectManager
+	public function getManager(string $name = null): EntityManager
 	{
 		if ($name === null) {
 			$name = $this->defaultManager;
@@ -239,10 +203,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 		}
 
 		if (!isset($this->managers[$name])) {
-			$pool       = NULL;
-			$paths      = array();
-			$config     = new ORM\Configuration();
-			$collection = $this->managerConfigs[$name];
+			$pool          = NULL;
+			$paths         = array();
+			$collection    = $this->managerConfigs[$name];
+			$configuration = new ORM\Configuration();
 
 			$subscribers = $this->app->getConfig('*', 'subscriber', [
 				'class'    => NULL,
@@ -251,86 +215,83 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				'manager'  => []
 			]);
 
-			$options = $this->app->getConfig($collection, 'manager', []) + [
-				'cache'      => NULL,
-				'driver'     => SimpleAnnotationReader::class,
+			$config = $this->app->getConfig($collection, 'manager', []) + [
+				'driver'     => AttributeDriver::class,
+				'options'    => array(),
+				'unmanaged'  => array(),
 				'connection' => 'default',
-				'unmanaged'  => [],
-				'paths'      => [],
+				'cache'      => NULL,
 			];
 
-			$config->setRepositoryFactory($this->app->get(RepositoryFactory::class));
+			$configuration->setRepositoryFactory($this->app->get(RepositoryFactory::class));
 
 			if ($this->app->getEnvironment('CACHING', FALSE)) {
-				if ($options['cache']) {
-					$pool = $this->pools->get($options['cache']);
+				if ($config['cache']) {
+					$pool = $this->pools->get($config['cache']);
 				} else {
 					$pool = $this->pools->getDefaultPool();
 				}
 
-				$config->setMetadataCache($pool);
-				$config->setQueryCache($pool);
+				$configuration->setMetadataCache($pool);
+				$configuration->setQueryCache($pool);
 			} else {
-				$config->setAutoGenerateProxyClasses(TRUE);
-				$config->setAutoGenerateProxyClasses(AbstractProxyFactory::AUTOGENERATE_ALWAYS);
-			}
-
-			foreach ($options['paths'] as $path) {
-				$paths[] = $this->app->getDirectory($path)->getRealPath();
+				$configuration->setAutoGenerateProxyClasses(TRUE);
 			}
 
 			if (isset($this->paths[$name])) {
 				$paths = array_merge($paths, $this->paths[$name]);
 			}
 
-			$connection = $this->getConnection($options['connection']);
-			$proxy_ns   = $options['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
-			$proxy_dir  = $options['proxy']['directory'] ?? $this->app->getDirectory(
+			if (!class_exists($config['driver'])) {
+				throw new RuntimeException(sprintf(
+					'Invalid driver class specified "%s", class does not exist',
+					$config['driver']
+				));
+			}
+
+			$connection = $this->getConnection($config['connection']);
+			$driver     = $this->app->get($config['driver'], $config['options']);
+			$proxy_ns   = $config['proxy']['namespace'] ?? ucwords($name) . 'Proxies';
+			$proxy_dir  = $config['proxy']['directory'] ?? $this->app->getDirectory(
 				'storage/proxies/' . $name
 			);
 
-			if (in_array($options['driver'], static::$annotationDrivers)) {
-				$reader = $this->app->get($options['driver']);
-				$driver = new AnnotationDriver($reader, $paths);
 
-				if ($reader instanceof SimpleAnnotationReader) {
-					$reader->addNamespace('Doctrine\ORM\Mapping');
-				}
-
-			} else {
-				$driver = $this->app->get($options['driver'], [$paths]);
-
-			}
-
-			if (!empty($options['unmanaged'])) {
+			if (!empty($config['unmanaged'])) {
 				$connection->getConfiguration()->setSchemaAssetsFilter(
-					function($object) use ($options) {
-						return !in_array($object, $options['unmanaged']);
+					function($object) use ($config) {
+						return !in_array($object, $config['unmanaged']);
 					}
 				);
 			}
 
-			foreach ($options['functions'] ?? [] as $type => $classes) {
+			foreach ($config['functions'] ?? [] as $type => $classes) {
 				foreach ($classes as $function => $class) {
 					$method = sprintf('addCustom%sFunction', $type);
 
-					$config->$method($function, $class);
+					$configuration->$method($function, $class);
 				}
 			}
 
-			if (!empty($options['walkers']['output'])) {
-				$config->setDefaultQueryHint(ORM\Query::HINT_CUSTOM_OUTPUT_WALKER, $options['walkers']['output']);
+			if (!empty($config['walkers']['output'])) {
+				$configuration->setDefaultQueryHint(
+					ORM\Query::HINT_CUSTOM_OUTPUT_WALKER,
+					$config['walkers']['output']
+				);
 			}
 
-			if (!empty($options['walkers']['tree'])) {
-				$config->setDefaultQueryHint(ORM\Query::HINT_CUSTOM_TREE_WALKERS, $options['walkers']['tree']);
+			if (!empty($config['walkers']['tree'])) {
+				$configuration->setDefaultQueryHint(
+					ORM\Query::HINT_CUSTOM_TREE_WALKERS,
+					$config['walkers']['tree']
+				);
 			}
 
-			$config->setProxyDir($proxy_dir);
-			$config->setProxyNamespace($proxy_ns);
-			$config->setMetadataDriverImpl($driver);
+			$configuration->setProxyDir($proxy_dir);
+			$configuration->setProxyNamespace($proxy_ns);
+			$configuration->setMetadataDriverImpl($driver);
 
-			$this->managers[$name] = new ORM\EntityManager($connection, $config);
+			$this->managers[$name] = new EntityManager($connection, $configuration);
 
 			//
 			// Event Subscribers are added after to prevent cyclical dependencies in the event
@@ -341,19 +302,19 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 				return $a['priority'] - $b['priority'];
 			});
 
-			foreach ($subscribers as $collection => $config) {
-				settype($config['manager'], 'array');
+			foreach ($subscribers as $collection => $configuration) {
+				settype($configuration['manager'], 'array');
 
-				if (!empty($config['disabled'])) {
+				if (!empty($configuration['disabled'])) {
 					continue;
 				}
 
-				if (!in_array($name, $config['manager'])) {
+				if (!in_array($name, $configuration['manager'])) {
 					continue;
 				}
 
 				$this->managers[$name]->getEventManager()->addEventSubscriber(
-					$this->app->get($config['class'])
+					$this->app->get($configuration['class'])
 				);
 			}
 		}
@@ -363,11 +324,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * {@inheritdoc}
-	 *
-	 * @param class-string $class
+	 * @param class-string<T> $class
+	 * @template T of object
 	 */
-	public function getManagerForClass(string $class): ?Persistence\ObjectManager
+	public function getManagerForClass(string $class): ?EntityManager
 	{
 		$class      = $this->getClassName($class);
 		$reflection = new ReflectionClass($class);
@@ -410,7 +370,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * {@inheritdoc}
+	 * @return array<string, EntityManager>
 	 */
 	public function getManagers(): array
 	{
@@ -425,9 +385,13 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 
 
 	/**
-	 * Gets the ObjectRepository for a persistent object.
+	 * {@inheritDoc}
+	 *
+	 * @param class-string<T> $class
+	 * @return EntityRepository<T>
+	 * @template T of object
 	 */
-	public function getRepository(string $class, string $manager_name = null): ?AbstractRepository
+	public function getRepository(string $class, string $manager_name = null): EntityRepository
 	{
 		if ($manager_name) {
 			$manager = $this->getManager($manager_name);
@@ -442,7 +406,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry
 	/**
 	 * Reset a manager by re-reading its configs and establishing new dependencies
 	 */
-	public function resetManager(string $name = null): Persistence\ObjectManager
+	public function resetManager(string $name = null): EntityManager
 	{
 		if (!$name) {
 			$name = $this->defaultManager;

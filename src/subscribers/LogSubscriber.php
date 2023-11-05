@@ -3,9 +3,8 @@
 namespace Hiraeth\Doctrine;
 
 use Doctrine\Common;
+use Doctrine\ORM\Event;
 use Doctrine\ORM\Events;
-use Doctrine\ORM\Event\LifecycleEventArgs;
-
 use Psr\Log\LoggerInterface;
 
 /**
@@ -44,24 +43,24 @@ class LogSubscriber implements Common\EventSubscriber
 	/**
 	 * @return void
 	 */
-	public function postPersist(LifecycleEventArgs $args)
+	public function postPersist(Event\PostPersistEventArgs $args)
 	{
-		$this->logger->info('Entity has been persisted.', ['entity' => $args->getEntity()]);
+		$this->logger->info('Entity has been persisted.', ['entity' => $args->getObject()]);
 	}
 
 	/**
 	 * @return void
 	 */
-	public function postRemove(LifecycleEventArgs $args)
+	public function postRemove(Event\PostRemoveEventArgs $args)
 	{
-		$this->logger->info('Entity has been removed.', ['entity' => $args->getEntity()]);
+		$this->logger->info('Entity has been removed.', ['entity' => $args->getObject()]);
 	}
 
 	/**
 	 * @return void
 	 */
-	public function postUpdate(LifecycleEventArgs $args)
+	public function postUpdate(Event\PostUpdateEventArgs $args)
 	{
-		$this->logger->info('Entity has been updated.', ['entity' => $args->getEntity()]);
+		$this->logger->info('Entity has been updated.', ['entity' => $args->getObject()]);
 	}
  }

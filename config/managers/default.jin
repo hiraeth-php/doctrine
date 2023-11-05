@@ -12,13 +12,7 @@
 
 	cache = default
 
-	;
-	; The application relative paths where entities for this manager can be found
-	;
 
-	paths = [
-		"local/entities"
-	]
 
 	;
 	; Unmanaged tables/sequences.  Doctrine will not expect these to be managed and
@@ -38,6 +32,20 @@
 	functions = {
 
 	}
+
+	;
+	; The options for the specified driver above
+	;
+
+	[&.options]
+
+		;
+		; The application relative paths where entities for this manager can be found
+		;
+
+		paths = dir([
+			"local/entities"
+		])
 
 	;
 	; Proxy generation information

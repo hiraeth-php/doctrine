@@ -2,9 +2,10 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Repository;
 use Psr\Container\ContainerInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Repository;
 
 
 /**
@@ -28,9 +29,11 @@ class RepositoryFactory implements Repository\RepositoryFactory
 
 
 	/**
+	 * @param class-string<Entity> $name The name of the entity.
 	 *
+	 * @template Entity of object
 	 */
-	public function getRepository(EntityManagerInterface $manager, $name)
+	public function getRepository(EntityManagerInterface $manager, string $name): EntityRepository
 	{
 		$meta_data = $manager->getClassMetaData($name);
 

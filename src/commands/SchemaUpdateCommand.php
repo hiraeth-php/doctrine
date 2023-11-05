@@ -2,14 +2,21 @@
 
 namespace Hiraeth\Doctrine;
 
-use Doctrine\ORM\Tools\Console\Command\SchemaTool;
+use Doctrine\ORM\Tools\Console\Command;
 
 /**
  *
  */
-class SchemaUpdateCommand extends SchemaTool\UpdateCommand
+class SchemaUpdateCommand extends AbstractCommand
 {
-	use MultipleEntityManagers;
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $defaultName = 'orm:schema-tool:update';
 
-	protected static $defaultName = 'orm:schema-tool:update';
+
+	/**
+	 * {@inheritDoc}
+	 */
+	static protected $proxy = Command\SchemaTool\UpdateCommand::class;
 }
