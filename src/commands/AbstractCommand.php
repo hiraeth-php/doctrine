@@ -3,6 +3,7 @@
 namespace Hiraeth\Doctrine;
 
 use Hiraeth\Console;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -76,7 +77,7 @@ abstract class AbstractCommand extends Console\ProxyCommand
 	/**
 	 *
 	 */
-	protected function proxy()
+	protected function proxy(): Command
 	{
 		return new static::$proxy($this->managers);
 	}
