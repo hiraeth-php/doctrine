@@ -80,6 +80,24 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Detach an entity from the repository.
+	 *
+	 * A detached entity allows you to make changes without persisting them to the database.  If
+	 * it is determined that you do want to persist the changes, use the attach() method to
+	 * merge it back into the repository.
+	 *
+	 * @param T $entity The entity to detach.
+	 * @return self<T> The repository instance for method chaining.
+	 */
+	public function detach(object $entity): self
+	{
+		$this->manager->detach($entity);
+
+		return $this;
+	}
+
+
+	/**
 	 * Create a new entity.
 	 *
 	 * @param array<string, mixed> $data
@@ -100,18 +118,54 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * Detach an entity from the repository.
+	 * Update an entity using the hydrator
 	 *
-	 * A detached entity allows you to make changes without persisting them to the database.  If
-	 * it is determined that you do want to persist the changes, use the attach() method to
-	 * merge it back into the repository.
-	 *
-	 * @param T $entity The entity to detach.
+	 * @param T $entity
+	 * @param array<string, mixed> $data
 	 * @return self<T> The repository instance for method chaining.
 	 */
-	public function detach(object $entity): self
+	public function update(object $entity, array $data, bool $protect = TRUE): AbstractRepository
 	{
-		$this->manager->detach($entity);
+		$this->hydrator->fill($entity, $data, $protect);
+
+		return $this;
+	}
+
+
+	/**
+	 * Replicate an entity using the replicator which will do smart deep cloning.
+	 *
+	 * @param T $entity The entity to replicate.
+	 * @return T|null The replicated entity.
+	 */
+	public function replicate(object $entity): ?object
+	{
+		return $this->replicator->clone($entity);
+	}
+
+
+	/**
+	 * Remove an entity from the repository.
+	 *
+	 * @param T $entity The entity to remove.
+	 * @param bool $flush Whether or not to flush the entity manager immediately.
+	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
+	 * @return self<T> The repository instance for method chaining.
+	 */
+	public function remove(object $entity, bool $flush = FALSE, bool $recompute = FALSE)
+	{
+		$this->manager->remove($entity);
+
+		if ($flush) {
+			$this->manager->flush();
+		}
+
+		if ($recompute) {
+			$this->manager->getUnitOfWork()->computeChangeSet(
+				$this->manager->getClassMetadata(get_class($entity)),
+				$entity
+			);
+		}
 
 		return $this;
 	}
@@ -122,34 +176,57 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function find($id, LockMode|int|null $lock_mode = NULL, int|null $lock_version = NULL): ?object
 	{
-		if (!is_null($id)) {
-			if (is_scalar($id)) {
-				return parent::find($id, $lock_mode, $lock_version) ?: NULL;
-			}
-
-			if (is_array($id) && array_keys($id)) {
-				$meta_data   = $this->getClassMetadata();
-				$field_names = $meta_data->getIdentifierFieldNames();
-				$identity    = array_intersect_key($id, array_flip($field_names));
-
-				if (count($identity) == count($field_names)) {
-					$id = $identity;
-				}
-
-				$result = $this->findBy($id, [], 2);
-
-				if (count($result) > 1) {
-					throw new \InvalidArgumentException(sprintf(
-						'ID argument with keys "%s" yields more than one result',
-						join(', ', array_keys($id))
-					));
-				}
-
-				return $result[0] ?? NULL;
-			}
+		if (is_null($id)) {
+			return NULL;
 		}
 
-		return NULL;
+		if (is_scalar($id)) {
+			return parent::find($id, $lock_mode, $lock_version) ?: NULL;
+		}
+
+		if (is_array($id)) {
+			$param       = 1;
+			$builder     = $this->manager->createQueryBuilder();
+			$meta_data   = $this->getClassMetadata();
+			$field_names = $meta_data->getIdentifierFieldNames();
+			$identity    = array_intersect_key($id, array_flip($field_names));
+
+			if (count($identity) == count($field_names)) {
+				$id = $identity;
+			}
+
+			$builder->select('DISTINCT this');
+			$builder->setMaxResults(2);
+
+			foreach ($this->join($builder, $id) as $key => $value) {
+				if (is_null($value)) {
+					$expr = $builder->expr()->isNull($key);
+
+				} else {
+					$expr = $builder->expr()->eq($key, '?' . $param);
+
+					$builder->setParameter($param++, $value);
+				}
+
+				$builder->andWhere($expr);
+			}
+
+			$result = $builder->getQuery()->getResult();
+
+			if (count($result) > 1) {
+				throw new \InvalidArgumentException(sprintf(
+					'ID argument with keys "%s" yields more than one result',
+					join(', ', array_keys($id))
+				));
+			}
+
+			return $result[0] ?? NULL;
+		}
+
+		throw new \InvalidArgumentException(sprintf(
+			'ID argument of type "%S" is not supported',
+			gettype($id)
+		));
 	}
 
 
@@ -246,7 +323,7 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function query($build_callbacks, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
 	{
-		$builder = $this->build($build_callbacks);
+		$builder = $this->select($build_callbacks);
 		$selects = $builder->getDQLPart('select');
 
 		if ((string) $selects[0] == 'DISTINCT this') {
@@ -304,7 +381,7 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function queryCount($build_callbacks, bool $non_limited = FALSE, bool $cache = TRUE)
 	{
-		$builder    = $this->build($build_callbacks);
+		$builder    = $this->select($build_callbacks);
 		$meta_data  = $this->getClassMetadata();
 		$identifier = $meta_data->getIdentifierFieldNames();
 
@@ -324,45 +401,6 @@ abstract class AbstractRepository extends EntityRepository
 		return $cache
 			? $builder->getQuery()->getSingleScalarResult()
 			: $builder->getQuery()->useQueryCache(FALSE)->getSingleScalarResult();
-	}
-
-
-	/**
-	 * Remove an entity from the repository.
-	 *
-	 * @param T $entity The entity to remove.
-	 * @param bool $flush Whether or not to flush the entity manager immediately.
-	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
-	 * @return self<T> The repository instance for method chaining.
-	 */
-	public function remove(object $entity, bool $flush = FALSE, bool $recompute = FALSE)
-	{
-		$this->manager->remove($entity);
-
-		if ($flush) {
-			$this->manager->flush();
-		}
-
-		if ($recompute) {
-			$this->manager->getUnitOfWork()->computeChangeSet(
-				$this->manager->getClassMetadata(get_class($entity)),
-				$entity
-			);
-		}
-
-		return $this;
-	}
-
-
-	/**
-	 * Replicate an entity using the replicator which will do smart deep cloning.
-	 *
-	 * @param T $entity The entity to replicate.
-	 * @return T|null The replicated entity.
-	 */
-	public function replicate(object $entity): ?object
-	{
-		return $this->replicator->clone($entity);
 	}
 
 
@@ -402,54 +440,11 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
-	 * Update an entity using the hydrator
-	 *
-	 * @param T $entity
-	 * @param array<string, mixed> $data
-	 * @return self<T> The repository instance for method chaining.
+	 * Get the baseline query builder
 	 */
-	public function update(object $entity, array $data, bool $protect = TRUE): AbstractRepository
+	protected function build(): QueryBuilder
 	{
-		$this->hydrator->fill($entity, $data, $protect);
-
-		return $this;
-	}
-
-
-	/**
-	 * Initiate build and execute callbacks
-	 *
-	 * @param callable|string|array<mixed> $build_callbacks
-	 */
-	protected function build($build_callbacks): QueryBuilder
-	{
-		$builder = $this->manager->createQueryBuilder();
-
-		$builder
-			->select('DISTINCT this')
-			->from(static::$entity, 'this')
-		;
-
-		if (is_callable($build_callbacks)) {
-			$builder = $build_callbacks($builder);
-
-		} else {
-			if (!is_array($build_callbacks)) {
-				$build_callbacks = array($build_callbacks);
-			}
-
-			foreach ($build_callbacks as $method) {
-				if (!is_callable($method)) {
-					$method = [$this, 'build' . ucfirst($method)];
-				}
-
-				if (is_callable($method)) {
-					$builder = $method($builder);
-				}
-			}
-		}
-
-		return $builder;
+		return $this->manager->createQueryBuilder();
 	}
 
 
@@ -562,12 +557,49 @@ abstract class AbstractRepository extends EntityRepository
 
 
 	/**
+	 * Initiate select and execute build callbacks
+	 *
+	 * @param callable|string|array<mixed> $build_callbacks
+	 */
+	protected function select($build_callbacks): QueryBuilder
+	{
+		$builder = $this->build();
+
+		$builder
+			->select('DISTINCT this')
+			->from(static::$entity, 'this')
+		;
+
+		if (is_callable($build_callbacks)) {
+			$builder = $build_callbacks($builder);
+
+		} else {
+			if (!is_array($build_callbacks)) {
+				$build_callbacks = array($build_callbacks);
+			}
+
+			foreach ($build_callbacks as $method) {
+				if (!is_callable($method)) {
+					$method = [$this, 'build' . ucfirst($method)];
+				}
+
+				if (is_callable($method)) {
+					$builder = $method($builder);
+				}
+			}
+		}
+
+		return $builder;
+	}
+
+
+	/**
 	 * Normalize the paths in a criteria
 	 *
 	 * @param array<string, mixed> $data
 	 * @return array<string, mixed>
 	 */
-	protected function pathize(array $data, string $prefix = 'this'): array
+	private function pathize(array $data, string $prefix = 'this'): array
 	{
 		$result = array();
 
