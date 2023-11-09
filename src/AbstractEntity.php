@@ -8,11 +8,11 @@ namespace Hiraeth\Doctrine;
 abstract class AbstractEntity
 {
 	/**
-	 * An array of protected properties.
+	 * An array of fillable properties.
 	 *
 	 * @var array<string>
 	 */
-	static public $_protect = ['*'];
+	static public $fillable = [];
 
 	/**
 	 *

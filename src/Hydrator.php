@@ -60,14 +60,10 @@ class Hydrator
 		$platform  = $manager->getConnection()->getDatabasePlatform();
 		$meta_data = $manager->getClassMetaData($class);
 
-		if ($entity instanceof Proxy && !$entity->__isInitialized()) {
-			$entity->__load();
-		}
+		$manager->getUnitOfWork()->initializeObject($entity);
 
 		foreach ($data as $field => $value) {
-			$protected = array_intersect(['*', $field], $entity::$_protect);
-
-			if ($protected) {
+			if ($protect && !in_array($field, $entity::$fillable)) {
 				continue;
 			}
 

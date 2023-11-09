@@ -111,7 +111,10 @@ trait PropertyAccess
 					}
 				}
 
-			} elseif ($ignore_setter || !is_callable([$entity, $method])) {
+			} elseif ($ignore_setter) {
+				$this->reflectProperty($entity, $name)->setValue($entity, $value);
+
+			} elseif(!method_exists($entity, $method) || !is_callable([$entity, $method])) {
 				$this->reflectProperty($entity, $name)->setValue($entity, $value);
 
 			} else {
