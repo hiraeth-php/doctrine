@@ -195,8 +195,11 @@ abstract class AbstractRepository extends EntityRepository
 				$id = $identity;
 			}
 
-			$builder->select('DISTINCT this');
-			$builder->setMaxResults(2);
+			$builder
+				->select('DISTINCT this')
+				->from(static::$entity, 'this')
+				->setMaxResults(2)
+			;
 
 			foreach ($this->join($builder, $id) as $key => $value) {
 				if (is_null($value)) {
@@ -444,7 +447,10 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	protected function build(): QueryBuilder
 	{
-		return $this->manager->createQueryBuilder();
+		return $this->manager->createQueryBuilder()
+			->select('DISTINCT this')
+			->from(static::$entity, 'this')
+		;
 	}
 
 
@@ -564,11 +570,6 @@ abstract class AbstractRepository extends EntityRepository
 	protected function select($build_callbacks): QueryBuilder
 	{
 		$builder = $this->build();
-
-		$builder
-			->select('DISTINCT this')
-			->from(static::$entity, 'this')
-		;
 
 		if (is_callable($build_callbacks)) {
 			$builder = $build_callbacks($builder);
