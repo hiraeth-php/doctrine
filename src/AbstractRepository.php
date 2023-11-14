@@ -78,6 +78,14 @@ abstract class AbstractRepository extends EntityRepository
 		parent::__construct($this->manager, $meta_data);
 	}
 
+	/**
+	 *
+	 */
+	public function clear(): self
+	{
+		$this->manager->clear(static::$entity);
+	}
+
 
 	/**
 	 * Detach an entity from the repository.
