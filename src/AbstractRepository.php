@@ -2,6 +2,7 @@
 
 namespace Hiraeth\Doctrine;
 
+use AbstractEntity;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityManager;
@@ -84,6 +85,8 @@ abstract class AbstractRepository extends EntityRepository
 	public function clear(): self
 	{
 		$this->manager->clear(static::$entity);
+
+		return $this;
 	}
 
 
@@ -114,7 +117,6 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	public function create(array $data = array(), bool $protect = TRUE): object
 	{
-
 		$entity = new static::$entity;
 
 		if (!empty($data)) {
