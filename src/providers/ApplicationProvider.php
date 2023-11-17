@@ -3,7 +3,7 @@
 namespace Hiraeth\Doctrine;
 
 use Hiraeth;
-use Doctrine\Common\Proxy\Autoloader;
+use Doctrine\ORM\Proxy\Autoloader;
 
 /**
  *
