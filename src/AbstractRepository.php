@@ -8,8 +8,10 @@ use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Query\AST\Join;
 use Doctrine\Common\Collections;
 use Doctrine\DBAL\LockMode;
+use InvalidArgumentException;
 
 /**
  * @template T of AbstractEntity
@@ -491,7 +493,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * @param array<string, mixed> $data
 	 * @return array<mixed>
 	 */
-	protected function join(QueryBuilder $builder, array $data = array()): array
+	protected function join(QueryBuilder $builder, array $data = array(), int $type = Join::JOIN_TYPE_LEFT): array
 	{
 		$result    = array();
 		$path_data = $this->pathize($data);
@@ -521,7 +523,18 @@ abstract class AbstractRepository extends EntityRepository
 					);
 
 					if (!count($joins)) {
-						$builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
+						switch ($type) {
+							case Join::JOIN_TYPE_INNER:
+								$builder->innerJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
+								break;
+							case Join::JOIN_TYPE_LEFT:
+								$builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
+								break;
+							default:
+								throw new InvalidArgumentException(sprintf(
+									'Invalid join type specified'
+								));
+						}
 					}
 				}
 			}
