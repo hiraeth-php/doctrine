@@ -270,37 +270,37 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		$result = $this->query(function ($builder) use ($criteria, $order_by, $limit, $offset) {
-			$param    = 1;
-			$criteria = $this->join($builder, $criteria);
-			$order_by = $this->order($builder, $order_by);
+			$param  = 1;
 
 			foreach ($criteria as $key => $value) {
-				$parts  = array_diff(explode('.', $key), ['this']);
-				$method = sprintf('filter%s', implode(array_map('ucfirst', $parts)));
+				$method = sprintf('filter%s', ucfirst($key));
 
 				if (method_exists($this, $method)) {
+					unset($criteria[$key]);
+
 					if ($value === '' || is_array($value) && !array_filter($value)) {
 						continue;
 					}
 
 					$this->$method($builder, $value);
+				}
+			}
+
+			foreach ($this->join($builder, $criteria) as $key => $value) {
+				if (is_null($value)) {
+					$expr = $builder->expr()->isNull($key);
 
 				} else {
-					if (is_null($value)) {
-						$expr = $builder->expr()->isNull($key);
-
+					if (is_array($value)) {
+						$expr = $builder->expr()->in($key, '?' . $param);
 					} else {
-						if (is_array($value)) {
-							$expr = $builder->expr()->in($key, '?' . $param);
-						} else {
-							$expr = $builder->expr()->eq($key, '?' . $param);
-						}
-
-						$builder->setParameter($param++, $value);
+						$expr = $builder->expr()->eq($key, '?' . $param);
 					}
 
-					$builder->andWhere($expr);
+					$builder->setParameter($param++, $value);
 				}
+
+				$builder->andWhere($expr);
 			}
 
 			if (!is_null($limit)) {
@@ -310,6 +310,8 @@ abstract class AbstractRepository extends EntityRepository
 			if (!is_null($offset)) {
 				$builder->setFirstResult($offset);
 			}
+
+			$this->order($builder, $order_by);
 
 			return $builder;
 		}, $nonlimited_count);
