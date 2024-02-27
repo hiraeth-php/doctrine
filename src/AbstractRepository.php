@@ -347,9 +347,9 @@ abstract class AbstractRepository extends EntityRepository
 			$this->order($builder, static::$order);
 
 			foreach ($builder->getDQLPart('orderBy') as $order_expr) {
-				$alias = substr($order_expr, 0, strpos($order_expr, '.') ?: NULL);
+				$alias = substr($order_expr, 0, strpos($order_expr, '.')) ?: NULL;
 
-				if ($alias !== 'this') {
+				if ($alias && $alias !== 'this') {
 					$order_on = substr($order_expr, 0, strpos($order_expr, ' ') ?: NULL);
 					$matches  = array_filter(
 						$selects,
