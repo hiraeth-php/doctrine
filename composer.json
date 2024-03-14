@@ -25,8 +25,8 @@
     "require-dev": {
         "phpstan/phpstan": "^1.0",
         "hiraeth/stash": "^2.0",
-	"hiraeth/fastroute": "^2.0",
-	"hiraeth/diactoros": "^2.0"
+        "hiraeth/fastroute": "^2.0",
+        "hiraeth/diactoros": "^2.0"
     },
     "type": "opus-package",
     "extra": {
