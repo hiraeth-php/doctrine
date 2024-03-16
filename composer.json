@@ -33,6 +33,7 @@
     },
     "autoload-dev": {
         "classmap": [
+            "local",
             "test/src"
         ]
     },
