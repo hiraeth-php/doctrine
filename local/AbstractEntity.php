@@ -1,6 +1,6 @@
 <?php
 
-abstract class AbstractEntity extends Hireath\Doctrine\AbstractEntity
+abstract class AbstractEntity extends Hiraeth\Doctrine\AbstractEntity
 {
 
 }
