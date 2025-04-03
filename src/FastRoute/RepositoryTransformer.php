@@ -33,7 +33,7 @@ class RepositoryTransformer implements FastRoute\Transformer
 	/**
 	 * {@inheritDoc}
 	 */
-	public function fromUrl($name, $value, array $context = array())
+	public function fromUrl(string $name, string $value, array $context = array()): mixed
 	{
 		$parts = explode('/', $value);
 		$class = implode('\\', array_map(
@@ -59,7 +59,7 @@ class RepositoryTransformer implements FastRoute\Transformer
 	/**
 	 * {@inheritDoc}
 	 */
-	public function toUrl($name, $value, array $context = array()): string
+	public function toUrl(string $name, mixed $value, array $context = array()): string
 	{
 		$class = get_class($value);
 		$parts = explode('\\', $class ?: 'Unknkown');
