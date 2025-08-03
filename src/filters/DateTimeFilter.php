@@ -30,7 +30,7 @@ class DateTimeFilter
 
 				}
 
-			} catch (\Exception $e) {
+			} catch (\Exception) {
 				//
 				// If the parsing fails we'll hit the NULl return below
 				//

@@ -34,7 +34,7 @@ class Replicator
 	 * @param array<string|int, string> $source
 	 * @return ?T
 	 */
-	public function clone(?AbstractEntity $entity, array $data = array(), array $source = array()): ?AbstractEntity
+	public function clone(?AbstractEntity $entity, array $data = [], array $source = []): ?AbstractEntity
 	{
 		if (is_null($entity)) {
 			return NULL;
@@ -82,8 +82,7 @@ class Replicator
 					$entity,
 					$field,
 					$collection->map(
-						function($related_entity) use ($mapping, $entity, $class, $field) {
-							return $this->clone(
+						fn($related_entity) => $this->clone(
 								$related_entity,
 								[
 									$mapping->mappedBy => $entity
@@ -91,8 +90,7 @@ class Replicator
 								[
 									$class => $field
 								]
-							);
-						}
+							)
 					)
 				);
 			}

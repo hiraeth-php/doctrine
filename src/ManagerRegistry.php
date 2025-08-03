@@ -43,19 +43,19 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	/**
 	 * @var array<string, EntityManager>
 	 */
-	protected $managers = array();
+	protected $managers = [];
 
 
 	/**
 	 * @var array<string, string>
 	 */
-	protected $managerConfigs = array();
+	protected $managerConfigs = [];
 
 
 	/**
 	 * @var array<string, string[]>
 	 */
-	protected $paths = array();
+	protected $paths = [];
 
 
 	/**
@@ -103,7 +103,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	public function addEntityPath(string $manager_name, string $path): self
 	{
 		if (!isset($this->paths[$manager_name])) {
-			$this->paths[$manager_name] = array();
+			$this->paths[$manager_name] = [];
 		}
 
 		$this->paths[$manager_name][] = $path;
@@ -119,7 +119,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	public function getClassName($entity)
 	{
 		if (is_object($entity)) {
-			$class = get_class($entity);
+			$class = $entity::class;
 		} else {
 			$class = $entity;
 		}
@@ -138,7 +138,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getConnection(string $name = null): DBAL\Connection
+	public function getConnection(?string $name = null): DBAL\Connection
 	{
 		return $this->connectionRegistry->getConnection($name);
 	}
@@ -192,7 +192,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	/**
 	 * {@inheritdoc}
 	 */
-	public function getManager(string $name = null): EntityManager
+	public function getManager(?string $name = null): EntityManager
 	{
 		if ($name === null) {
 			$name = $this->defaultManager;
@@ -204,7 +204,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 
 		if (!isset($this->managers[$name])) {
 			$pool          = NULL;
-			$paths         = array();
+			$paths         = [];
 			$collection    = $this->managerConfigs[$name];
 			$configuration = new ORM\Configuration();
 
@@ -217,8 +217,8 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 
 			$config = $this->app->getConfig($collection, 'manager', []) + [
 				'driver'     => AttributeDriver::class,
-				'options'    => array(),
-				'unmanaged'  => array(),
+				'options'    => [],
+				'unmanaged'  => [],
 				'connection' => 'default',
 				'cache'      => NULL,
 			];
@@ -259,9 +259,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 
 			if (!empty($config['unmanaged'])) {
 				$connection->getConfiguration()->setSchemaAssetsFilter(
-					function($object) use ($config) {
-						return !in_array($object, $config['unmanaged']);
-					}
+					fn($object) => !in_array($object, $config['unmanaged'])
 				);
 			}
 
@@ -298,11 +296,9 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 			// the subscriber has a repository or entity manager re-injected
 			//
 
-			uasort($subscribers, function($a, $b) {
-				return $a['priority'] - $b['priority'];
-			});
+			uasort($subscribers, fn($a, $b) => $a['priority'] - $b['priority']);
 
-			foreach ($subscribers as $collection => $configuration) {
+			foreach ($subscribers as $configuration) {
 				settype($configuration['manager'], 'array');
 
 				if (!empty($configuration['disabled'])) {
@@ -360,12 +356,10 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 		return array_combine(
 			array_keys($this->managerConfigs),
 			array_map(
-				function ($collection): string {
-					return $this->app->getConfig($collection, 'manager.name', 'Unknown Name');
-				},
+				fn($collection): string => $this->app->getConfig($collection, 'manager.name', 'Unknown Name'),
 				$this->managerConfigs
 			)
-		) ?: array();
+		) ?: [];
 	}
 
 
@@ -391,7 +385,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	 * @return EntityRepository<T>
 	 * @template T of object
 	 */
-	public function getRepository(string $class, string $manager_name = null): EntityRepository
+	public function getRepository(string $class, ?string $manager_name = null): EntityRepository
 	{
 		if ($manager_name) {
 			$manager = $this->getManager($manager_name);
@@ -406,7 +400,7 @@ class ManagerRegistry implements Persistence\ManagerRegistry, EntityManagerProvi
 	/**
 	 * Reset a manager by re-reading its configs and establishing new dependencies
 	 */
-	public function resetManager(string $name = null): EntityManager
+	public function resetManager(?string $name = null): EntityManager
 	{
 		if (!$name) {
 			$name = $this->defaultManager;

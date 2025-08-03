@@ -19,7 +19,7 @@ class Hydrator
 	/**
 	 * @var array<string, callable>
 	 */
-	protected $filters = array();
+	protected $filters = [];
 
 
 	/**
@@ -115,7 +115,7 @@ class Hydrator
 	protected function fillAssociation(AbstractEntity $entity, string $field, $value, bool $protect = TRUE): self
 	{
 		$link      = NULL;
-		$class     = get_class($entity);
+		$class     = $entity::class;
 		$manager   = $this->registry->getManagerForClass($class);
 		$meta_data = $manager->getClassMetaData($class);
 		$mapping   = $meta_data->getAssociationMapping($field);
@@ -155,7 +155,7 @@ class Hydrator
 		if (!$cur_collection instanceof Collections\Collection) {
 			throw new RuntimeException(sprintf(
 				'On "%s" the field "%s" is not a collection, must be initialized as a collection',
-				get_class($entity),
+				$entity::class,
 				$field
 			));
 		}
@@ -279,7 +279,7 @@ class Hydrator
 	 */
 	protected function findAssociated(AbstractEntity $entity, string $field, $id, ?int $lock_mode = NULL, ?int $lock_version = NULL): ?AbstractEntity
 	{
-		$class     = get_class($entity);
+		$class     = $entity::class;
 		$manager   = $this->registry->getManagerForClass($class);
 		$meta_data = $manager->getClassMetaData($class);
 		$mapping   = $meta_data->getAssociationMapping($field);

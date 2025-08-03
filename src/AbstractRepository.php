@@ -117,7 +117,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * @param bool $protect
 	 * @return T
 	 */
-	public function create(array $data = array(), bool $protect = TRUE): object
+	public function create(array $data = [], bool $protect = TRUE): object
 	{
 		$entity = new static::$entity;
 
@@ -174,7 +174,7 @@ abstract class AbstractRepository extends EntityRepository
 
 		if ($recompute) {
 			$this->manager->getUnitOfWork()->computeChangeSet(
-				$this->manager->getClassMetadata(get_class($entity)),
+				$this->manager->getClassMetadata($entity::class),
 				$entity
 			);
 		}
@@ -231,7 +231,7 @@ abstract class AbstractRepository extends EntityRepository
 			if (count($result) > 1) {
 				throw new \InvalidArgumentException(sprintf(
 					'ID argument with keys "%s" yields more than one result',
-					join(', ', array_keys($id))
+					implode(', ', array_keys($id))
 				));
 			}
 
@@ -266,7 +266,7 @@ abstract class AbstractRepository extends EntityRepository
 	public function findBy(array $criteria, ?array $order_by = [], int|null $limit = null, int|null $offset = null, ?int &$nonlimited_count = NULL): array
 	{
 		if (!is_null($order_by)) {
-			$order_by = $order_by + static::$order;
+			$order_by += static::$order;
 		}
 
 		$result = $this->query(function ($builder) use ($criteria, $order_by, $limit, $offset) {
@@ -358,8 +358,8 @@ abstract class AbstractRepository extends EntityRepository
 								return TRUE;
 							}
 
-							$is_hidden = strpos(strtoupper($select_expr), 'AS HIDDEN') !== FALSE;
-							$is_match  = strpos($select_expr, $order_on) === 0;
+							$is_hidden = str_contains(strtoupper($select_expr), 'AS HIDDEN');
+							$is_match  = str_starts_with($select_expr, $order_on);
 
 							if ($is_hidden && $is_match) {
 								return TRUE;
@@ -377,9 +377,7 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		if ($nonlimited_count === 0) {
-			$nonlimited_count = $this->queryCount(function() use ($builder) {
-				return clone $builder;
-			}, TRUE, $cache);
+			$nonlimited_count = $this->queryCount(fn() => clone $builder, TRUE, $cache);
 		}
 
 		return $this->collect(
@@ -404,9 +402,7 @@ abstract class AbstractRepository extends EntityRepository
 
 		$builder->resetDQLPart('orderBy');
 		$builder->select($builder->expr()->countDistinct(...array_map(
-			function($field) {
-				return sprintf('this.%s', $field);
-			},
+			fn($field) => sprintf('this.%s', $field),
 			$identifier
 		)));
 
@@ -429,7 +425,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * @param bool $recompute Whether or not to recompute the unit of work on entity changeset.
 	 * @return self<T> The repository instance for method chaining.
 	 */
-	public function store(object $entity = NULL, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
+	public function store(?object $entity = NULL, bool $flush = FALSE, bool $recompute = FALSE): AbstractRepository
 	{
 		if (func_num_args() === 0) {
 			$this->manager->flush();
@@ -446,7 +442,7 @@ abstract class AbstractRepository extends EntityRepository
 
 			if ($recompute) {
 				$this->manager->getUnitOfWork()->computeChangeSet(
-					$this->manager->getClassMetadata(get_class($entity)),
+					$this->manager->getClassMetadata($entity::class),
 					$entity
 				);
 			}
@@ -495,9 +491,9 @@ abstract class AbstractRepository extends EntityRepository
 	 * @param array<string, mixed> $data
 	 * @return array<mixed>
 	 */
-	protected function join(QueryBuilder $builder, array $data = array(), int $type = Join::JOIN_TYPE_LEFT): array
+	protected function join(QueryBuilder $builder, array $data = [], int $type = Join::JOIN_TYPE_LEFT): array
 	{
-		$result    = array();
+		$result    = [];
 		$path_data = $this->pathize($data);
 
 		foreach ($path_data as $path => $value) {
@@ -515,7 +511,7 @@ abstract class AbstractRepository extends EntityRepository
 						$builder->getDQLPart('join'),
 						function($join_expr) use ($alias) {
 							foreach ($join_expr as $join) {
-								if (explode('.', $join->getJoin(), 2)[1] == $alias) {
+								if (explode('.', (string) $join->getJoin(), 2)[1] == $alias) {
 									return TRUE;
 								}
 							}
@@ -525,18 +521,15 @@ abstract class AbstractRepository extends EntityRepository
 					);
 
 					if (!count($joins)) {
-						switch ($type) {
-							case Join::JOIN_TYPE_INNER:
-								$builder->innerJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
-								break;
-							case Join::JOIN_TYPE_LEFT:
-								$builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON');
-								break;
-							default:
-								throw new InvalidArgumentException(sprintf(
+						match ($type) {
+                            Join::JOIN_TYPE_INNER
+								=> $builder->innerJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON'),
+                            Join::JOIN_TYPE_LEFT
+								=> $builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON'),
+                            default => throw new InvalidArgumentException(sprintf(
 									'Invalid join type specified'
-								));
-						}
+								)),
+                        };
 					}
 				}
 			}
@@ -555,9 +548,9 @@ abstract class AbstractRepository extends EntityRepository
 	 * @param array<string, string> $order
 	 * @return array<string>
 	 */
-	protected function order(QueryBuilder $builder, array $order = array()): array
+	protected function order(QueryBuilder $builder, array $order = []): array
 	{
-		$result = array();
+		$result = [];
 		$order  = $this->join($builder, $order);
 
 		foreach ($order as $path => $value) {
@@ -567,7 +560,7 @@ abstract class AbstractRepository extends EntityRepository
 				$builder->getDQLPart('orderBy'),
 				function($order_expr) use ($path) {
 					foreach ($order_expr->getParts() as $order) {
-						if (explode(' ', $order, 2)[0] == $path) {
+						if (explode(' ', (string) $order, 2)[0] == $path) {
 							return TRUE;
 						}
 					}
@@ -601,12 +594,12 @@ abstract class AbstractRepository extends EntityRepository
 
 		} else {
 			if (!is_array($build_callbacks)) {
-				$build_callbacks = array($build_callbacks);
+				$build_callbacks = [$build_callbacks];
 			}
 
 			foreach ($build_callbacks as $method) {
 				if (!is_callable($method)) {
-					$method = [$this, 'build' . ucfirst($method)];
+					$method = [$this, 'build' . ucfirst((string) $method)];
 				}
 
 				if (is_callable($method)) {
@@ -627,10 +620,10 @@ abstract class AbstractRepository extends EntityRepository
 	 */
 	private function pathize(array $data, string $prefix = 'this'): array
 	{
-		$result = array();
+		$result = [];
 
 		foreach ($data as $key => $value) {
-			if (strpos($key, $prefix . '.') !== 0) {
+			if (!str_starts_with($key, $prefix . '.')) {
 				$key = $prefix . '.' . $key;
 			}
 

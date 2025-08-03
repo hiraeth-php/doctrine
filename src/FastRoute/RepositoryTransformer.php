@@ -33,13 +33,11 @@ class RepositoryTransformer implements FastRoute\Transformer
 	/**
 	 * {@inheritDoc}
 	 */
-	public function fromUrl(string $name, string $value, array $context = array()): mixed
+	public function fromUrl(string $name, string $value, array $context = []): mixed
 	{
 		$parts = explode('/', $value);
 		$class = implode('\\', array_map(
-			function($part) {
-				return str_replace(' ', '', ucwords(str_replace('-', ' ', $part)));
-			},
+			fn($part) => str_replace(' ', '', ucwords(str_replace('-', ' ', $part))),
 			$parts
 		));
 
@@ -59,15 +57,13 @@ class RepositoryTransformer implements FastRoute\Transformer
 	/**
 	 * {@inheritDoc}
 	 */
-	public function toUrl(string $name, mixed $value, array $context = array()): string
+	public function toUrl(string $name, mixed $value, array $context = []): string
 	{
-		$class = get_class($value);
-		$parts = explode('\\', $class ?: 'Unknkown');
+		$class = $value::class;
+		$parts = explode('\\', $class ?: 'Unknown');
 
 		return implode('/', array_map(
-			function($part) {
-				return strtolower(preg_replace(static::REGEX_SPLIT, '-$1', $part));
-			},
+			fn($part) => strtolower(preg_replace(static::REGEX_SPLIT, '-$1', (string) $part)),
 			$parts
 		));
 	}

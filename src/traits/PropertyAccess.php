@@ -132,7 +132,7 @@ trait PropertyAccess
 	 */
 	protected function reflectProperty(object $entity, $name): ReflectionProperty
 	{
-		$class = get_class($entity);
+		$class = $entity::class;
 
 		if (!isset(static::$reflections[$class])) {
 			static::$reflections[$class]['@'] = new ReflectionClass($class);
@@ -142,7 +142,7 @@ trait PropertyAccess
 			try {
 				static::$reflections[$class][$name] = static::$reflections[$class]['@']->getProperty($name);
 				static::$reflections[$class][$name]->setAccessible(TRUE);
-			} catch (ReflectionException $e) {
+			} catch (ReflectionException) {
 				throw new InvalidArgumentException(sprintf(
 					'Cannot set property, class "%s" has no property named "%s"',
 					$class,

@@ -10,7 +10,7 @@ class StringFilter
 	 */
 	public function __invoke($value)
 	{
-		if (strlen(trim($value))) {
+		if (strlen(trim((string) $value))) {
 			return $value;
 		}
 
