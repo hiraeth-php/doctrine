@@ -69,6 +69,8 @@ trait PropertyAccess
 	 */
 	public function setProperty(object $entity, string $name, $value, $ignore_setter = FALSE): self
 	{
+		$existing = NULL;
+
 		if (strpos($name, '.')) {
 			$parts = explode('.', $name);
 			$name  = array_pop($parts);
@@ -83,7 +85,10 @@ trait PropertyAccess
 		if (property_exists($entity, $name)) {
 			$method   = 'set' . ucwords($name);
 			$property = $this->reflectProperty($entity, $name);
-			$existing = $property->getValue($entity);
+
+			if ($property->isInitialized($entity)) {
+				$existing = $property->getValue($entity);
+			}
 
 			//
 			// Note: this should only be employed for basic collection mapping.  Associations
