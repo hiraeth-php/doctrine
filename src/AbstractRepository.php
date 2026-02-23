@@ -20,7 +20,7 @@ use InvalidArgumentException;
 abstract class AbstractRepository extends EntityRepository
 {
 	/**
-	 * @var class-string<Collection<int, T>>
+	 * @var class-string<Collection<int,T>>
 	 */
 	static protected $collection = Collection::class;
 
@@ -30,7 +30,7 @@ abstract class AbstractRepository extends EntityRepository
 	static protected $entity;
 
 	/**
-	 * @var array<string, string>
+	 * @var array<string,string>
 	 */
 	static protected $order = [];
 
@@ -113,7 +113,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * Create a new entity.
 	 *
-	 * @param array<string, mixed> $data
+	 * @param array<string,mixed> $data
 	 * @param bool $protect
 	 * @return T
 	 */
@@ -133,7 +133,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * Update an entity using the hydrator
 	 *
 	 * @param T $entity
-	 * @param array<string, mixed> $data
+	 * @param array<string,mixed> $data
 	 * @return self<T> The repository instance for method chaining.
 	 */
 	public function update(object $entity, array $data, bool $protect = TRUE): AbstractRepository
@@ -248,7 +248,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 *
-	 * @param array<string, 'ASC'|'asc'|'DESC'|'desc'>|null $order_by
+	 * @param array<string,'ASC'|'asc'|'DESC'|'desc'>|null $order_by
 	 * @return T[]
 	 */
 	public function findAll(?array $order_by = []): array
@@ -260,7 +260,7 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 *
-	 * @param array<string, 'ASC'|'asc'|'DESC'|'desc'>|null $order_by
+	 * @param array<string,'ASC'|'asc'|'DESC'|'desc'>|null $order_by
 	 * @return T[]
 	 */
 	public function findBy(array $criteria, ?array $order_by = [], int|null $limit = null, int|null $offset = null, ?int &$nonlimited_count = NULL): array
@@ -323,8 +323,8 @@ abstract class AbstractRepository extends EntityRepository
 	/**
 	 * {@inheritDoc}
 	 *
-	 * @param array<string, 'ASC'|'asc'|'DESC'|'desc'>|null $order_by
-	 * @return T|null
+	 * @param array<string,'ASC'|'asc'|'DESC'|'desc'>|null $order_by
+	 * @return ?T
 	 */
 	public function findOneBy(array $criteria, ?array $order_by = []): ?object
 	{
@@ -336,7 +336,7 @@ abstract class AbstractRepository extends EntityRepository
 	 * Query the repository using a build callback.
 	 *
 	 * @param callable|string|array<callable|string> $build_callbacks
-	 * @return Collection<int, T> The collection of entities matching the query builder.
+	 * @return Collection<int,T> The collection of entities matching the query builder.
 	 */
 	public function query($build_callbacks, ?int &$nonlimited_count = NULL, bool $cache = TRUE): Collection
 	{
