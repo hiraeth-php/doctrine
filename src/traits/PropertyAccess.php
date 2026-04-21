@@ -36,16 +36,26 @@ trait PropertyAccess
 
 			foreach ($parts as $part) {
 				if (property_exists($entity, $part)) {
-					$entity = $this->reflectProperty($entity, $part)->getValue($entity);
+					$property = $this->reflectProperty($entity, $part);
+
+					if ($property->isInitialized($entity)) {
+						$entity = $property->getValue($entity);
+					} else {
+						$entity = NULL;
+					}
 				}
 			}
 		}
 
-		if (property_exists($entity, $name)) {
+		if ($entity && property_exists($entity, $name)) {
 			$method   = 'get' . ucwords($name);
 
 			if ($ignore_getter || !is_callable([$entity, $method])) {
-				$value = $this->reflectProperty($entity, $name)->getValue($entity);
+				$property = $this->reflectProperty($entity, $name);
+
+				if ($property->isInitialized($entity)) {
+					$value = $property->getValue($entity);
+				}
 			} else {
 				$value = $entity->$method();
 			}
