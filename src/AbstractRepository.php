@@ -11,6 +11,7 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Query\AST\Join;
 use Doctrine\Common\Collections;
 use Doctrine\DBAL\LockMode;
+use Doctrine\DBAL\Types\Type;
 use InvalidArgumentException;
 
 /**
@@ -270,7 +271,7 @@ abstract class AbstractRepository extends EntityRepository
 		}
 
 		$result = $this->query(function ($builder) use ($criteria, $order_by, $limit, $offset) {
-			$param  = 1;
+			$param = 1;
 
 			foreach ($criteria as $key => $value) {
 				$method = sprintf('filter%s', ucfirst($key));
@@ -495,43 +496,53 @@ abstract class AbstractRepository extends EntityRepository
 	{
 		$result    = [];
 		$path_data = $this->pathize($data);
+		$manager   = $this->getEntityManager();
+		$platform  = $manager->getConnection()->getDatabasePlatform();
 
 		foreach ($path_data as $path => $value) {
-			$parts = explode('.', $path);
-			$path  = implode('.', array_slice($parts, -2));
+			$meta_data  = $this->getClassMetadata();
+			$parts      = explode('.', $path);
+			$path       = implode('.', array_slice($parts, -2));
 
-			if (count($parts) > 2) {
-				for ($x = 0; $x < count($parts); $x++) {
-					if (!isset($parts[$x+2])) {
-						break;
-					}
+			for ($x = 0; $x < count($parts); $x++) {
+				$alias = $parts[$x+1];
 
-					$alias = $parts[$x+1];
-					$joins = array_filter(
-						$builder->getDQLPart('join'),
-						function($join_expr) use ($alias) {
-							foreach ($join_expr as $join) {
-								if (explode('.', (string) $join->getJoin(), 2)[1] == $alias) {
-									return TRUE;
-								}
-							}
-
-							return FALSE;
-						}
-					);
-
-					if (!count($joins)) {
-						match ($type) {
-                            Join::JOIN_TYPE_INNER
-								=> $builder->innerJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON'),
-                            Join::JOIN_TYPE_LEFT
-								=> $builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON'),
-                            default => throw new InvalidArgumentException(sprintf(
-									'Invalid join type specified'
-								)),
-                        };
-					}
+				if (!isset($parts[$x+2])) {
+					break;
 				}
+
+				$mapping   = $meta_data->getAssociationMapping($alias);
+				$meta_data = $this->getEntityManager()->getClassMetadata($mapping->targetEntity);
+				$joins     = array_filter(
+					$builder->getDQLPart('join'),
+					function($join_expr) use ($alias) {
+						foreach ($join_expr as $join) {
+							if (explode('.', (string) $join->getJoin(), 2)[1] == $alias) {
+								return TRUE;
+							}
+						}
+
+						return FALSE;
+					}
+				);
+
+				if (!count($joins)) {
+					match ($type) {
+						Join::JOIN_TYPE_INNER
+							=> $builder->innerJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON'),
+						Join::JOIN_TYPE_LEFT
+							=> $builder->leftJoin(sprintf('%s.%s', $parts[$x], $alias), $alias, 'ON'),
+						default => throw new InvalidArgumentException(sprintf(
+								'Invalid join type specified'
+							)),
+					};
+				}
+			}
+
+			if (isset($meta_data->fieldMappings[$alias]) && is_object($value)) {
+				$value = Type::getType($meta_data->fieldMappings[$alias]['type'])
+					->convertToDatabaseValue($value, $platform)
+				;
 			}
 
 			$result[$path] = $value;
